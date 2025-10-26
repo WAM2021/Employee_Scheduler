@@ -18,8 +18,8 @@ import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.0.0"  # Current version of the application
-GITHUB_REPO = "https://github.com/WAM2021/employee-scheduler.git"  # Replace with your actual GitHub repo
+APP_VERSION = "1.1.0"  # Current version of the application
+GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 DATA_FILE = "employees.json"
@@ -210,7 +210,7 @@ def format_time_simple(time_str):
 class WorkSchedulerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Work Scheduler")
+        self.root.title(f"Work Scheduler v{APP_VERSION}")
         
         # Set initial window size
         self.root.geometry("1024x768")
