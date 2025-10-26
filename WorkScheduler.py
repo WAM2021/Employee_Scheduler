@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.2.0"  # Current version of the application
+APP_VERSION = "1.0.0"  # Current version of the application
 GITHUB_REPO = "https://github.com/WAM2021/employee-scheduler.git"  # Replace with your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
