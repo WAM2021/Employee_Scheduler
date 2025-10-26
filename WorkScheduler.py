@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.0.0"  # Current version of the application
+APP_VERSION = "1.2.0"  # Current version of the application
 GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
@@ -175,71 +175,132 @@ def apply_update(update_file_path):
         backup_name = f"{exe_name}.backup"
         backup_path = os.path.join(exe_dir, backup_name)
         
-        # Create a more robust PowerShell script for the update
+        # Create a simplified and more reliable PowerShell script
         ps_script_content = f'''
-# Wait for the main process to fully exit
-Start-Sleep -Seconds 3
+# Update script with logging
+$logFile = "{os.path.join(exe_dir, 'update_log.txt')}"
+$currentExe = "{current_exe}"
+$updateFile = "{update_file_path}"
+$backupFile = "{backup_path}"
 
-# Backup current executable
-if (Test-Path "{current_exe}") {{
-    Copy-Item "{current_exe}" "{backup_path}" -Force
+function Write-Log {{
+    param($message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "$timestamp - $message" | Out-File -FilePath $logFile -Append
 }}
 
-# Wait a bit more to ensure file handles are released
+Write-Log "Starting update process"
+Write-Log "Current exe: $currentExe"
+Write-Log "Update file: $updateFile"
+
+# Wait for the main process to fully exit
+Write-Log "Waiting for process to exit..."
+Start-Sleep -Seconds 4
+
+# Backup current executable
+if (Test-Path $currentExe) {{
+    Write-Log "Creating backup..."
+    try {{
+        Copy-Item $currentExe $backupFile -Force
+        Write-Log "Backup created successfully"
+    }} catch {{
+        Write-Log "Backup failed: $_"
+    }}
+}}
+
+# Wait for file handles to be released
 Start-Sleep -Seconds 2
 
-# Try to replace the executable with retry logic
-$maxRetries = 5
-$retryCount = 0
+# Replace the executable
+Write-Log "Attempting to replace executable..."
 $success = $false
+$maxRetries = 3
+$retryCount = 0
 
 while ($retryCount -lt $maxRetries -and -not $success) {{
     try {{
-        Move-Item "{update_file_path}" "{current_exe}" -Force
-        $success = $true
-    }}
-    catch {{
+        if (Test-Path $updateFile) {{
+            Move-Item $updateFile $currentExe -Force
+            $success = $true
+            Write-Log "File replacement successful"
+        }} else {{
+            Write-Log "Update file not found!"
+        }}
+    }} catch {{
         $retryCount++
-        Start-Sleep -Seconds 2
+        Write-Log "Replacement attempt $retryCount failed: $_"
+        Start-Sleep -Seconds 3
     }}
 }}
 
 if ($success) {{
     # Start the new version
-    Start-Process "{current_exe}" -WorkingDirectory "{exe_dir}"
+    Write-Log "Starting new version..."
+    try {{
+        Start-Process -FilePath $currentExe -WorkingDirectory "{exe_dir}" -WindowStyle Normal
+        Write-Log "New version started successfully"
+    }} catch {{
+        Write-Log "Failed to start new version: $_"
+    }}
     
-    # Clean up backup after a delay
-    Start-Sleep -Seconds 5
-    if (Test-Path "{backup_path}") {{
-        Remove-Item "{backup_path}" -Force -ErrorAction SilentlyContinue
+    # Clean up backup after delay
+    Start-Sleep -Seconds 3
+    if (Test-Path $backupFile) {{
+        try {{
+            Remove-Item $backupFile -Force
+            Write-Log "Backup cleaned up"
+        }} catch {{
+            Write-Log "Failed to clean backup: $_"
+        }}
     }}
 }} else {{
-    # Restore backup if update failed
-    if (Test-Path "{backup_path}") {{
-        Move-Item "{backup_path}" "{current_exe}" -Force
+    Write-Log "Update failed, restoring backup..."
+    if (Test-Path $backupFile) {{
+        try {{
+            Move-Item $backupFile $currentExe -Force
+            Write-Log "Backup restored"
+        }} catch {{
+            Write-Log "Failed to restore backup: $_"
+        }}
     }}
 }}
 
-# Clean up this script
-Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue
+Write-Log "Update process completed"
+
+# Clean up this script after a delay
+Start-Sleep -Seconds 2
+try {{
+    Remove-Item $PSCommandPath -Force
+}} catch {{
+    # Ignore cleanup errors
+}}
 '''
         
         # Write PowerShell script to temp file
         import tempfile
-        ps_script_file = os.path.join(tempfile.gettempdir(), "employee_scheduler_update.ps1")
+        ps_script_file = os.path.join(tempfile.gettempdir(), f"employee_scheduler_update_{os.getpid()}.ps1")
         with open(ps_script_file, 'w', encoding='utf-8') as f:
             f.write(ps_script_content)
         
-        # Start the PowerShell script in a new process
+        # Start the PowerShell script with better process handling
         powershell_cmd = [
             "powershell.exe", 
             "-WindowStyle", "Hidden", 
             "-ExecutionPolicy", "Bypass", 
+            "-NoProfile",
             "-File", ps_script_file
         ]
         
-        subprocess.Popen(powershell_cmd, 
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)
+        # Use a more reliable process creation method
+        import subprocess
+        subprocess.Popen(
+            powershell_cmd,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL
+        )
+        
         return True
         
     except Exception as e:
@@ -3151,17 +3212,28 @@ Brought to you by WILLSTER"""
     def _force_exit(self):
         """Force application exit for updates."""
         try:
+            # Save any pending data first
+            self.save_to_file()
+            
+            # Stop any background threads
+            if hasattr(self, 'update_checker') and self.update_checker:
+                self.update_checker = None
+            
             # Close all windows
             for window in self.root.winfo_children():
                 if hasattr(window, 'destroy'):
-                    window.destroy()
+                    try:
+                        window.destroy()
+                    except:
+                        pass
             
             # Destroy main window
+            self.root.quit()  # Stop the mainloop first
             self.root.destroy()
             
-            # Force process exit
-            import sys
-            sys.exit(0)
+            # Ensure complete process termination
+            import os
+            os._exit(0)
         except:
             # If all else fails, force terminate
             import os
