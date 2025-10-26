@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.2.1"  # Current version of the application
+APP_VERSION = "1.0.1"  # Current version of the application
 GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
@@ -158,7 +158,7 @@ def download_update(download_url, progress_callback=None, completion_callback=No
     thread.start()
 
 def apply_update(update_file_path):
-    """Apply the downloaded update using the new approach: create new exe, show changelog, then cleanup."""
+    """Apply the downloaded update by replacing the current executable - user manually restarts."""
     try:
         current_exe = sys.executable
         if hasattr(sys, 'frozen'):
@@ -169,19 +169,19 @@ def apply_update(update_file_path):
             messagebox.showinfo("Update", "Please manually replace the executable file.")
             return False
         
-        # Get the directory and create new filename
+        # Get the directory of the current executable
         exe_dir = os.path.dirname(current_exe)
         exe_name = os.path.basename(current_exe)
-        name_without_ext = os.path.splitext(exe_name)[0]
-        old_exe_path = os.path.join(exe_dir, f"{name_without_ext}_old.exe")
+        backup_name = f"{exe_name}.backup"
+        backup_path = os.path.join(exe_dir, backup_name)
         
-        # Create PowerShell script with new approach
+        # Create a simple PowerShell script that just replaces the file
         ps_script_content = f'''
-# New update approach: create new exe, rename old, start new
+# Simple update: replace file, user manually restarts
 $logFile = "{os.path.join(exe_dir, 'update_log.txt')}"
 $currentExe = "{current_exe}"
 $updateFile = "{update_file_path}"
-$oldExePath = "{old_exe_path}"
+$backupFile = "{backup_path}"
 
 function Write-Log {{
     param($message)
@@ -189,10 +189,9 @@ function Write-Log {{
     "$timestamp - $message" | Out-File -FilePath $logFile -Append
 }}
 
-Write-Log "Starting new update approach"
+Write-Log "Starting simple update process"
 Write-Log "Current exe: $currentExe"
 Write-Log "Update file: $updateFile"
-Write-Log "Old exe will be: $oldExePath"
 
 # Wait for the main process to fully exit
 Write-Log "Waiting for process to exit..."
@@ -210,52 +209,62 @@ do {{
 
 Write-Log "All processes have exited"
 
-# Step 1: Rename current exe to _old.exe
-try {{
-    if (Test-Path $currentExe) {{
-        Move-Item $currentExe $oldExePath -Force
-        Write-Log "Renamed current exe to old exe"
+# Create backup of current executable
+if (Test-Path $currentExe) {{
+    Write-Log "Creating backup..."
+    try {{
+        Copy-Item $currentExe $backupFile -Force
+        Write-Log "Backup created successfully"
+    }} catch {{
+        Write-Log "Backup failed: $_"
     }}
-}} catch {{
-    Write-Log "Failed to rename current exe: $_"
-    exit 1
 }}
 
-# Step 2: Move new exe to current location
-try {{
-    if (Test-Path $updateFile) {{
-        Move-Item $updateFile $currentExe -Force
-        Write-Log "Moved new exe to current location"
-    }} else {{
-        Write-Log "Update file not found!"
-        # Restore old exe if new one failed
-        if (Test-Path $oldExePath) {{
-            Move-Item $oldExePath $currentExe -Force
-            Write-Log "Restored old exe due to failure"
+# Replace the executable
+Write-Log "Attempting to replace executable..."
+$success = $false
+$maxRetries = 5
+$retryCount = 0
+
+while ($retryCount -lt $maxRetries -and -not $success) {{
+    try {{
+        if (Test-Path $updateFile) {{
+            Move-Item $updateFile $currentExe -Force
+            $success = $true
+            Write-Log "File replacement successful"
+        }} else {{
+            Write-Log "Update file not found!"
         }}
-        exit 1
+    }} catch {{
+        $retryCount++
+        Write-Log "Replacement attempt $retryCount failed: $_"
+        Start-Sleep -Seconds 3
     }}
-}} catch {{
-    Write-Log "Failed to move new exe: $_"
-    # Restore old exe if new one failed
-    if (Test-Path $oldExePath) {{
+}}
+
+if ($success) {{
+    Write-Log "Update completed successfully - user will manually restart"
+    
+    # Clean up backup after delay
+    Start-Sleep -Seconds 3
+    if (Test-Path $backupFile) {{
         try {{
-            Move-Item $oldExePath $currentExe -Force
-            Write-Log "Restored old exe due to failure"
+            Remove-Item $backupFile -Force
+            Write-Log "Backup cleaned up"
         }} catch {{
-            Write-Log "Failed to restore old exe: $_"
+            Write-Log "Failed to clean backup: $_"
         }}
     }}
-    exit 1
-}}
-
-# Step 3: Start new exe (which will show changelog and cleanup old)
-Write-Log "Starting new version..."
-try {{
-    Start-Process -FilePath $currentExe -WorkingDirectory "{exe_dir}" -ArgumentList "--updated-from-old"
-    Write-Log "New version started successfully"
-}} catch {{
-    Write-Log "Failed to start new version: $_"
+}} else {{
+    Write-Log "Update failed, restoring backup..."
+    if (Test-Path $backupFile) {{
+        try {{
+            Move-Item $backupFile $currentExe -Force
+            Write-Log "Backup restored"
+        }} catch {{
+            Write-Log "Failed to restore backup: $_"
+        }}
+    }}
 }}
 
 Write-Log "Update process completed"
@@ -631,21 +640,47 @@ Brought to you by WILLSTER"""
             pass  # Non-critical error
             
     def check_for_update_completion(self):
-        """Check if app was started after an update and show changelog if so"""
+        """Check if app was updated by looking for update log and show success message"""
         try:
-            import sys
-            # Check for command line argument indicating update completion
-            if "--updated-from-old" in sys.argv:
-                # Determine versions for changelog
-                old_version = "Previous Version"  # We could store this in a temp file if needed
-                new_version = APP_VERSION
+            import os
+            current_dir = os.path.dirname(sys.executable) if hasattr(sys, 'frozen') else os.getcwd()
+            log_file = os.path.join(current_dir, 'update_log.txt')
+            
+            # Check if update log exists and was modified recently (within last 5 minutes)
+            if os.path.exists(log_file):
+                import time
+                file_mod_time = os.path.getmtime(log_file)
+                current_time = time.time()
                 
-                # Schedule the changelog to show after UI is fully loaded
-                self.root.after(1000, lambda: self.show_changelog_dialog(old_version, new_version))
-                
+                # If log file was modified within last 5 minutes, likely an update just happened
+                if (current_time - file_mod_time) < 300:  # 5 minutes
+                    # Check if log contains successful update
+                    try:
+                        with open(log_file, 'r') as f:
+                            log_content = f.read()
+                            if "File replacement successful" in log_content and "Update completed successfully" in log_content:
+                                # Schedule success message after UI loads
+                                self.root.after(1000, self.show_update_success_message)
+                    except:
+                        pass  # Ignore errors reading log
+                        
         except Exception as e:
             print(f"Error checking update completion: {e}")
             pass  # Non-critical error
+            
+    def show_update_success_message(self):
+        """Show a simple success message when update is detected"""
+        try:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Update Successful! 🎉", 
+                f"Employee Scheduler has been successfully updated to version {APP_VERSION}!\n\n"
+                "All your data and settings have been preserved.\n\n"
+                "Thank you for keeping your application up to date!"
+            )
+        except Exception as e:
+            print(f"Error showing update success: {e}")
+            pass
         
     def calculate_font_size(self, base_size=10):
         """Calculate font size based on window dimensions with improved caching"""
@@ -3303,7 +3338,7 @@ Brought to you by WILLSTER"""
             
             response = messagebox.askyesno(
                 "Install Update", 
-                "Download complete! The application will close and restart to apply the update.\n\nContinue with installation?",
+                "Download complete! The application will close to apply the update.\n\nAfter the update, please manually restart the application.\n\nContinue with installation?",
                 icon="question"
             )
             
