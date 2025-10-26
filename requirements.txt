@@ -1,0 +1,4 @@
+tkinter
+reportlab==4.4.4
+tkcalendar==1.6.1
+requests==2.32.5

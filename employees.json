@@ -1,0 +1,917 @@
+{
+    "employees": [
+        {
+            "id": 2,
+            "name": "Wade",
+            "firstName": "Wade",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 3,
+            "name": "Dave",
+            "firstName": "Dave",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 4,
+            "name": "Ivan",
+            "firstName": "Ivan",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 5,
+            "name": "Karen",
+            "firstName": "Karen",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 6,
+            "name": "Lydia",
+            "firstName": "Lydia",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 7,
+            "name": "Malayna",
+            "firstName": "Malayna",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 8,
+            "name": "Molly",
+            "firstName": "Molly",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 9,
+            "name": "Selina",
+            "firstName": "Selina",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 10,
+            "name": "Tymber",
+            "firstName": "Tymber",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 11,
+            "name": "Will",
+            "firstName": "Will",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": [
+                {
+                    "date": "2025-10-23",
+                    "type": "full"
+                }
+            ]
+        },
+        {
+            "id": 12,
+            "name": "Ava",
+            "firstName": "Ava",
+            "lastName": "",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 13,
+            "name": "Caleb Childress",
+            "firstName": "Caleb",
+            "lastName": "Childress",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        },
+        {
+            "id": 14,
+            "name": "XiaoXia Caulfied",
+            "firstName": "XiaoXia",
+            "lastName": "Caulfied",
+            "position": "",
+            "availability": {
+                "monday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "tuesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "wednesday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "thursday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "friday": [
+                    "08:30 AM",
+                    "07:00 PM"
+                ],
+                "saturday": [
+                    "09:00 AM",
+                    "03:00 PM"
+                ],
+                "sunday": [
+                    "off"
+                ]
+            },
+            "requested_days_off": []
+        }
+    ],
+    "schedule": {
+        "2025-10": {},
+        "2025-11": {
+            "2025-11-01": [
+                {
+                    "employee": "Caleb Childress",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "09:00 AM",
+                    "end": "03:00 PM"
+                },
+                {
+                    "employee": "Dave",
+                    "start": "09:30 AM",
+                    "end": "03:00 PM"
+                }
+            ],
+            "2025-11-03": [
+                {
+                    "employee": "Caleb Childress",
+                    "start": "08:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Tymber",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Malayna",
+                    "start": "03:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-10": [
+                {
+                    "employee": "Caleb Childress",
+                    "start": "08:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Tymber",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-17": [
+                {
+                    "employee": "Caleb Childress",
+                    "start": "08:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Tymber",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-24": [
+                {
+                    "employee": "Caleb Childress",
+                    "start": "08:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Tymber",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-04": [
+                {
+                    "employee": "Karen",
+                    "start": "09:00 AM",
+                    "end": "01:00 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:00 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Malayna",
+                    "start": "03:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-11": [
+                {
+                    "employee": "Karen",
+                    "start": "09:00 AM",
+                    "end": "01:00 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Malayna",
+                    "start": "03:00 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-18": [
+                {
+                    "employee": "Karen",
+                    "start": "09:00 AM",
+                    "end": "01:00 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Malayna",
+                    "start": "03:00 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-25": [
+                {
+                    "employee": "Karen",
+                    "start": "09:00 AM",
+                    "end": "01:00 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Malayna",
+                    "start": "03:00 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-05": [
+                {
+                    "employee": "Dave",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                },
+                {
+                    "employee": "Caleb Childress",
+                    "start": "09:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "11:00 AM",
+                    "end": "05:00 PM"
+                },
+                {
+                    "employee": "Karen",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-12": [
+                {
+                    "employee": "Dave",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                },
+                {
+                    "employee": "Caleb Childress",
+                    "start": "09:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "11:00 AM",
+                    "end": "05:00 PM"
+                },
+                {
+                    "employee": "Karen",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-19": [
+                {
+                    "employee": "Dave",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                },
+                {
+                    "employee": "Caleb Childress",
+                    "start": "09:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "11:00 AM",
+                    "end": "04:00 PM"
+                },
+                {
+                    "employee": "Karen",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-26": [
+                {
+                    "employee": "Dave",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                },
+                {
+                    "employee": "Caleb Childress",
+                    "start": "09:30 AM",
+                    "end": "02:30 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "11:00 AM",
+                    "end": "04:00 PM"
+                },
+                {
+                    "employee": "Karen",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Will",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Lydia",
+                    "start": "02:30 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-06": [
+                {
+                    "employee": "Karen",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                },
+                {
+                    "employee": "XiaoXia Caulfied",
+                    "start": "09:30 AM",
+                    "end": "03:30 PM"
+                },
+                {
+                    "employee": "Ava",
+                    "start": "02:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Molly",
+                    "start": "12:00 PM",
+                    "end": "07:00 PM"
+                },
+                {
+                    "employee": "Malayna",
+                    "start": "03:00 PM",
+                    "end": "07:00 PM"
+                }
+            ],
+            "2025-11-13": [
+                {
+                    "employee": "Karen",
+                    "start": "09:00 AM",
+                    "end": "02:00 PM"
+                }
+            ]
+        }
+    },
+    "store_hours": {
+        "monday": [
+            "08:30 AM",
+            "7:00 PM"
+        ],
+        "tuesday": [
+            "8:30 AM",
+            "7:00 PM"
+        ],
+        "wednesday": [
+            "8:30 AM",
+            "7:00 PM"
+        ],
+        "thursday": [
+            "8:30 AM",
+            "7:00 PM"
+        ],
+        "friday": [
+            "8:30 AM",
+            "7:00 PM"
+        ],
+        "saturday": [
+            "9:00 AM",
+            "03:00 PM"
+        ],
+        "sunday": null
+    }
+}
