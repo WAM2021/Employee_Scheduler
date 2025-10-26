@@ -169,20 +169,77 @@ def apply_update(update_file_path):
             messagebox.showinfo("Update", "Please manually replace the executable file.")
             return False
         
-        # Create batch file to handle the update process
-        batch_content = f"""@echo off
-timeout /t 2 /nobreak > nul
-move "{update_file_path}" "{current_exe}"
-start "" "{current_exe}"
-del "%~f0"
-"""
+        # Get the directory of the current executable
+        exe_dir = os.path.dirname(current_exe)
+        exe_name = os.path.basename(current_exe)
+        backup_name = f"{exe_name}.backup"
+        backup_path = os.path.join(exe_dir, backup_name)
         
-        batch_file = os.path.join(os.path.dirname(current_exe), "update.bat")
-        with open(batch_file, 'w') as f:
-            f.write(batch_content)
+        # Create a more robust PowerShell script for the update
+        ps_script_content = f'''
+# Wait for the main process to fully exit
+Start-Sleep -Seconds 3
+
+# Backup current executable
+if (Test-Path "{current_exe}") {{
+    Copy-Item "{current_exe}" "{backup_path}" -Force
+}}
+
+# Wait a bit more to ensure file handles are released
+Start-Sleep -Seconds 2
+
+# Try to replace the executable with retry logic
+$maxRetries = 5
+$retryCount = 0
+$success = $false
+
+while ($retryCount -lt $maxRetries -and -not $success) {{
+    try {{
+        Move-Item "{update_file_path}" "{current_exe}" -Force
+        $success = $true
+    }}
+    catch {{
+        $retryCount++
+        Start-Sleep -Seconds 2
+    }}
+}}
+
+if ($success) {{
+    # Start the new version
+    Start-Process "{current_exe}" -WorkingDirectory "{exe_dir}"
+    
+    # Clean up backup after a delay
+    Start-Sleep -Seconds 5
+    if (Test-Path "{backup_path}") {{
+        Remove-Item "{backup_path}" -Force -ErrorAction SilentlyContinue
+    }}
+}} else {{
+    # Restore backup if update failed
+    if (Test-Path "{backup_path}") {{
+        Move-Item "{backup_path}" "{current_exe}" -Force
+    }}
+}}
+
+# Clean up this script
+Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue
+'''
         
-        # Start the batch file and exit current application
-        subprocess.Popen([batch_file], shell=True)
+        # Write PowerShell script to temp file
+        import tempfile
+        ps_script_file = os.path.join(tempfile.gettempdir(), "employee_scheduler_update.ps1")
+        with open(ps_script_file, 'w', encoding='utf-8') as f:
+            f.write(ps_script_content)
+        
+        # Start the PowerShell script in a new process
+        powershell_cmd = [
+            "powershell.exe", 
+            "-WindowStyle", "Hidden", 
+            "-ExecutionPolicy", "Bypass", 
+            "-File", ps_script_file
+        ]
+        
+        subprocess.Popen(powershell_cmd, 
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)
         return True
         
     except Exception as e:
@@ -3073,7 +3130,8 @@ Brought to you by WILLSTER"""
                 success = apply_update(temp_file_path)
                 if success:
                     # Application will restart, so we exit here
-                    self.root.quit()
+                    # Use a more forceful exit to ensure clean shutdown
+                    self.root.after(100, self._force_exit)
                 else:
                     # Clean up temp file if update failed
                     try:
@@ -3089,6 +3147,25 @@ Brought to you by WILLSTER"""
         
         # Start download
         download_update(download_url, progress_callback, completion_callback)
+    
+    def _force_exit(self):
+        """Force application exit for updates."""
+        try:
+            # Close all windows
+            for window in self.root.winfo_children():
+                if hasattr(window, 'destroy'):
+                    window.destroy()
+            
+            # Destroy main window
+            self.root.destroy()
+            
+            # Force process exit
+            import sys
+            sys.exit(0)
+        except:
+            # If all else fails, force terminate
+            import os
+            os._exit(0)
     
     def manual_check_for_updates(self):
         """Manually check for updates (called from menu)."""
