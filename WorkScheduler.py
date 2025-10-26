@@ -123,190 +123,88 @@ def check_for_updates(callback=None):
     thread = threading.Thread(target=_check, daemon=True)
     thread.start()
 
-def download_update(download_url, progress_callback=None, completion_callback=None):
-    """Download update file. Runs in background thread."""
-    def _download():
-        try:
-            response = requests.get(download_url, stream=True, timeout=30)
-            if response.status_code == 200:
-                total_size = int(response.headers.get('content-length', 0))
-                downloaded = 0
-                
-                # Create temporary file
-                temp_dir = tempfile.mkdtemp()
-                temp_file = os.path.join(temp_dir, "update.exe")
-                
-                with open(temp_file, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            if progress_callback and total_size > 0:
-                                progress = (downloaded / total_size) * 100
-                                progress_callback(progress)
-                
-                if completion_callback:
-                    completion_callback(temp_file, None)
-            else:
-                if completion_callback:
-                    completion_callback(None, f"Download failed: HTTP {response.status_code}")
-        except Exception as e:
-            if completion_callback:
-                completion_callback(None, f"Download error: {str(e)}")
-    
-    thread = threading.Thread(target=_download, daemon=True)
-    thread.start()
-
-def apply_update(update_file_path):
-    """Apply the downloaded update by replacing the current executable - user manually restarts."""
+def apply_update(update_file_path=None):
+    """Launch the update assistant to guide the user through manual update."""
     try:
-        current_exe = sys.executable
-        if hasattr(sys, 'frozen'):
-            # Running as compiled executable
-            current_exe = sys.executable
-        else:
-            # Running as script, can't auto-update
-            messagebox.showinfo("Update", "Please manually replace the executable file.")
-            return False
+        # Create and launch the update assistant
+        assistant_exe = create_update_assistant()
+        if not assistant_exe:
+            # Fallback: direct browser link
+            import webbrowser
+            webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
+            messagebox.showinfo(
+                "Update Available", 
+                f"A new version is available!\n\n"
+                f"Please download the latest version from the webpage that just opened.\n"
+                f"Then replace your current Employee_Scheduler.exe file with the new one."
+            )
+            return True
         
-        # Get the directory of the current executable
-        exe_dir = os.path.dirname(current_exe)
-        exe_name = os.path.basename(current_exe)
-        backup_name = f"{exe_name}.backup"
-        backup_path = os.path.join(exe_dir, backup_name)
-        
-        # Create a simple PowerShell script that just replaces the file
-        ps_script_content = f'''
-# Simple update: replace file, user manually restarts
-$logFile = "{os.path.join(exe_dir, 'update_log.txt')}"
-$currentExe = "{current_exe}"
-$updateFile = "{update_file_path}"
-$backupFile = "{backup_path}"
-
-function Write-Log {{
-    param($message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "$timestamp - $message" | Out-File -FilePath $logFile -Append
-}}
-
-Write-Log "Starting simple update process"
-Write-Log "Current exe: $currentExe"
-Write-Log "Update file: $updateFile"
-
-# Wait for the main process to fully exit
-Write-Log "Waiting for process to exit..."
-Start-Sleep -Seconds 5
-
-# Ensure no processes are running
-$processName = [System.IO.Path]::GetFileNameWithoutExtension($currentExe)
-do {{
-    $runningProcesses = Get-Process -Name $processName -ErrorAction SilentlyContinue
-    if ($runningProcesses) {{
-        Write-Log "Still waiting for processes to exit..."
-        Start-Sleep -Seconds 2
-    }}
-}} while ($runningProcesses)
-
-Write-Log "All processes have exited"
-
-# Create backup of current executable
-if (Test-Path $currentExe) {{
-    Write-Log "Creating backup..."
-    try {{
-        Copy-Item $currentExe $backupFile -Force
-        Write-Log "Backup created successfully"
-    }} catch {{
-        Write-Log "Backup failed: $_"
-    }}
-}}
-
-# Replace the executable
-Write-Log "Attempting to replace executable..."
-$success = $false
-$maxRetries = 5
-$retryCount = 0
-
-while ($retryCount -lt $maxRetries -and -not $success) {{
-    try {{
-        if (Test-Path $updateFile) {{
-            Move-Item $updateFile $currentExe -Force
-            $success = $true
-            Write-Log "File replacement successful"
-        }} else {{
-            Write-Log "Update file not found!"
-        }}
-    }} catch {{
-        $retryCount++
-        Write-Log "Replacement attempt $retryCount failed: $_"
-        Start-Sleep -Seconds 3
-    }}
-}}
-
-if ($success) {{
-    Write-Log "Update completed successfully - user will manually restart"
-    
-    # Clean up backup after delay
-    Start-Sleep -Seconds 3
-    if (Test-Path $backupFile) {{
-        try {{
-            Remove-Item $backupFile -Force
-            Write-Log "Backup cleaned up"
-        }} catch {{
-            Write-Log "Failed to clean backup: $_"
-        }}
-    }}
-}} else {{
-    Write-Log "Update failed, restoring backup..."
-    if (Test-Path $backupFile) {{
-        try {{
-            Move-Item $backupFile $currentExe -Force
-            Write-Log "Backup restored"
-        }} catch {{
-            Write-Log "Failed to restore backup: $_"
-        }}
-    }}
-}}
-
-Write-Log "Update process completed"
-
-# Clean up this script
-Start-Sleep -Seconds 2
-try {{
-    Remove-Item $PSCommandPath -Force
-}} catch {{
-    # Ignore cleanup errors
-}}
-'''
-        
-        # Write PowerShell script to temp file
-        import tempfile
-        ps_script_file = os.path.join(tempfile.gettempdir(), f"employee_scheduler_update_{os.getpid()}.ps1")
-        with open(ps_script_file, 'w', encoding='utf-8') as f:
-            f.write(ps_script_content)
-        
-        # Start the PowerShell script
-        powershell_cmd = [
-            "powershell.exe", 
-            "-WindowStyle", "Hidden", 
-            "-ExecutionPolicy", "Bypass", 
-            "-NoProfile",
-            "-File", ps_script_file
-        ]
-        
+        # Launch the assistant
         import subprocess
-        subprocess.Popen(
-            powershell_cmd,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL
-        )
-        
+        subprocess.Popen([assistant_exe], 
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
         return True
         
     except Exception as e:
-        messagebox.showerror("Update Error", f"Failed to apply update: {str(e)}")
-        return False
+        # Fallback: direct browser link
+        import webbrowser
+        try:
+            webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
+            messagebox.showinfo(
+                "Update Available", 
+                f"A new version is available!\n\n"
+                f"Please download the latest version from the webpage that just opened.\n"
+                f"Then replace your current Employee_Scheduler.exe file with the new one."
+            )
+        except:
+            messagebox.showinfo(
+                "Update Available", 
+                f"A new version is available!\n\n"
+                f"Please visit: https://github.com/{GITHUB_REPO}/releases/latest\n"
+                f"Download the latest .exe file and replace your current one."
+            )
+        return True
+
+def create_update_assistant():
+    """Create the update assistant executable."""
+    try:
+        import tempfile
+        import subprocess
+        
+        # Get the assistant source code
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        assistant_py = os.path.join(current_dir, "update_assistant.py")
+        
+        if not os.path.exists(assistant_py):
+            return None
+        
+        # Create temporary directory for the assistant
+        temp_dir = tempfile.mkdtemp()
+        assistant_exe = os.path.join(temp_dir, "Update_Assistant.exe")
+        
+        # Build the assistant using PyInstaller
+        build_cmd = [
+            "pyinstaller",
+            "--onefile",
+            "--windowed",
+            "--name", "Update_Assistant",
+            "--distpath", temp_dir,
+            "--workpath", os.path.join(temp_dir, "build"),
+            "--specpath", temp_dir,
+            assistant_py
+        ]
+        
+        # Run PyInstaller
+        result = subprocess.run(build_cmd, capture_output=True, text=True, cwd=current_dir)
+        
+        if result.returncode == 0 and os.path.exists(assistant_exe):
+            return assistant_exe
+        else:
+            return None
+            
+    except Exception as e:
+        return None
 
 def friendly_weekday_name(dt):
     return dt.strftime("%A")  # 'Monday' etc.
@@ -3269,141 +3167,20 @@ Brought to you by WILLSTER"""
         button_frame = tk.Frame(content_frame)
         button_frame.pack(fill="x", pady=(10, 0))
         
-        def download_and_install():
+        def open_update_assistant():
             dialog.destroy()
-            self.show_update_progress_dialog(download_url)
+            apply_update()
         
         def skip_update():
             dialog.destroy()
         
-        tk.Button(button_frame, text="Download & Install", 
-                 command=download_and_install, 
+        tk.Button(button_frame, text="Get Update Guide", 
+                 command=open_update_assistant, 
                  bg="#49D3E6", fg="white", 
                  font=("Arial", 10, "bold")).pack(side="right", padx=(10, 0))
         
         tk.Button(button_frame, text="Skip This Update", 
                  command=skip_update).pack(side="right")
-    
-    def show_update_progress_dialog(self, download_url):
-        """Show progress dialog during update download."""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Downloading Update")
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        self.center_dialog(dialog, 400, 200)
-        
-        # Prevent closing during download
-        dialog.protocol("WM_DELETE_WINDOW", lambda: None)
-        
-        # Header
-        header_frame = tk.Frame(dialog, bg="#49D3E6", height=50)
-        header_frame.pack(fill="x")
-        header_frame.pack_propagate(False)
-        
-        tk.Label(header_frame, text="Downloading Update...", 
-                font=("Arial", 14, "bold"), 
-                bg="#49D3E6", fg="white").pack(expand=True)
-        
-        # Content
-        content_frame = tk.Frame(dialog, padx=20, pady=20)
-        content_frame.pack(fill="both", expand=True)
-        
-        # Progress info
-        status_label = tk.Label(content_frame, text="Preparing download...", font=("Arial", 10))
-        status_label.pack(pady=(0, 10))
-        
-        # Progress bar
-        progress = ttk.Progressbar(content_frame, mode='determinate', length=300)
-        progress.pack(pady=(0, 10))
-        
-        progress_label = tk.Label(content_frame, text="0%", font=("Arial", 9))
-        progress_label.pack()
-        
-        def progress_callback(percent):
-            progress['value'] = percent
-            progress_label.config(text=f"{percent:.1f}%")
-            status_label.config(text="Downloading...")
-            dialog.update()
-        
-        def completion_callback(temp_file_path, error):
-            if error:
-                dialog.destroy()
-                messagebox.showerror("Download Failed", f"Failed to download update:\n{error}")
-                return
-            
-            # Download complete, ask to install
-            dialog.destroy()
-            
-            response = messagebox.askyesno(
-                "Install Update", 
-                "Download complete! The application will close to apply the update.\n\nAfter the update, please manually restart the application.\n\nContinue with installation?",
-                icon="question"
-            )
-            
-            if response:
-                success = apply_update(temp_file_path)
-                if success:
-                    # Application will restart, so we exit here
-                    # Use a more forceful exit to ensure clean shutdown
-                    self.root.after(100, self._force_exit)
-                else:
-                    # Clean up temp file if update failed
-                    try:
-                        os.remove(temp_file_path)
-                    except:
-                        pass
-            else:
-                # Clean up temp file if user declined
-                try:
-                    os.remove(temp_file_path)
-                except:
-                    pass
-        
-        # Start download
-        download_update(download_url, progress_callback, completion_callback)
-    
-    def _force_exit(self):
-        """Force application exit for updates with complete cleanup."""
-        try:
-            # Save any pending data first
-            self.save_to_file()
-            
-            # Stop any background threads
-            if hasattr(self, 'update_checker') and self.update_checker:
-                self.update_checker = None
-            
-            # Close all dialogs and windows first
-            for window in list(self.root.winfo_children()):
-                if hasattr(window, 'destroy'):
-                    try:
-                        window.destroy()
-                    except:
-                        pass
-            
-            # Stop the tkinter mainloop
-            self.root.quit()
-            
-            # Destroy the root window
-            self.root.destroy()
-            
-            # Force garbage collection to release references
-            import gc
-            gc.collect()
-            
-            # Give the system time to release all handles
-            import time
-            time.sleep(0.5)
-            
-            # Force exit the process completely
-            import os
-            os._exit(0)
-            
-        except Exception as e:
-            # If anything fails, force terminate immediately
-            import os
-            os._exit(0)
     
     def manual_check_for_updates(self):
         """Manually check for updates (called from menu)."""
