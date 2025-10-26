@@ -177,7 +177,7 @@ def apply_update(update_file_path):
         
         # Create a simplified and more reliable PowerShell script
         ps_script_content = f'''
-# Update script with logging
+# Update script with extensive logging and DLL-safe restart
 $logFile = "{os.path.join(exe_dir, 'update_log.txt')}"
 $currentExe = "{current_exe}"
 $updateFile = "{update_file_path}"
@@ -193,9 +193,21 @@ Write-Log "Starting update process"
 Write-Log "Current exe: $currentExe"
 Write-Log "Update file: $updateFile"
 
-# Wait for the main process to fully exit
-Write-Log "Waiting for process to exit..."
-Start-Sleep -Seconds 4
+# Wait for the main process to fully exit and DLLs to unload
+Write-Log "Waiting for process to exit and DLLs to unload..."
+Start-Sleep -Seconds 8
+
+# Additional wait to ensure all handles are released
+$processName = [System.IO.Path]::GetFileNameWithoutExtension($currentExe)
+do {{
+    $runningProcesses = Get-Process -Name $processName -ErrorAction SilentlyContinue
+    if ($runningProcesses) {{
+        Write-Log "Still waiting for processes to exit..."
+        Start-Sleep -Seconds 2
+    }}
+}} while ($runningProcesses)
+
+Write-Log "All processes have exited"
 
 # Backup current executable
 if (Test-Path $currentExe) {{
@@ -209,12 +221,12 @@ if (Test-Path $currentExe) {{
 }}
 
 # Wait for file handles to be released
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 3
 
 # Replace the executable
 Write-Log "Attempting to replace executable..."
 $success = $false
-$maxRetries = 3
+$maxRetries = 5
 $retryCount = 0
 
 while ($retryCount -lt $maxRetries -and -not $success) {{
@@ -234,17 +246,53 @@ while ($retryCount -lt $maxRetries -and -not $success) {{
 }}
 
 if ($success) {{
-    # Start the new version
+    # Wait longer before starting new version to ensure DLLs are fully unloaded
+    Write-Log "Waiting for system to stabilize before restart..."
+    Start-Sleep -Seconds 5
+    
+    # Start the new version using multiple approaches
     Write-Log "Starting new version..."
+    $restartSuccess = $false
+    
+    # Method 1: Direct PowerShell Start-Process
     try {{
-        Start-Process -FilePath $currentExe -WorkingDirectory "{exe_dir}" -WindowStyle Normal
-        Write-Log "New version started successfully"
+        Start-Process -FilePath $currentExe -WorkingDirectory "{exe_dir}"
+        Start-Sleep -Seconds 2
+        $restartSuccess = $true
+        Write-Log "New version started via Start-Process"
     }} catch {{
-        Write-Log "Failed to start new version: $_"
+        Write-Log "Start-Process method failed: $_"
+    }}
+    
+    # Method 2: If that fails, try with cmd
+    if (-not $restartSuccess) {{
+        try {{
+            cmd /c "cd /d `"{exe_dir}`" && start `"Employee Scheduler`" `"$currentExe`""
+            Start-Sleep -Seconds 2
+            $restartSuccess = $true
+            Write-Log "New version started via cmd"
+        }} catch {{
+            Write-Log "CMD method failed: $_"
+        }}
+    }}
+    
+    # Method 3: Last resort - invoke directly
+    if (-not $restartSuccess) {{
+        try {{
+            & $currentExe
+            $restartSuccess = $true
+            Write-Log "New version started via direct invocation"
+        }} catch {{
+            Write-Log "Direct invocation failed: $_"
+        }}
+    }}
+    
+    if (-not $restartSuccess) {{
+        Write-Log "All restart methods failed - user must manually restart"
     }}
     
     # Clean up backup after delay
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 5
     if (Test-Path $backupFile) {{
         try {{
             Remove-Item $backupFile -Force
@@ -267,8 +315,8 @@ if ($success) {{
 
 Write-Log "Update process completed"
 
-# Clean up this script after a delay
-Start-Sleep -Seconds 2
+# Clean up this script after a longer delay
+Start-Sleep -Seconds 3
 try {{
     Remove-Item $PSCommandPath -Force
 }} catch {{
@@ -3210,7 +3258,7 @@ Brought to you by WILLSTER"""
         download_update(download_url, progress_callback, completion_callback)
     
     def _force_exit(self):
-        """Force application exit for updates."""
+        """Force application exit for updates with complete cleanup."""
         try:
             # Save any pending data first
             self.save_to_file()
@@ -3219,23 +3267,34 @@ Brought to you by WILLSTER"""
             if hasattr(self, 'update_checker') and self.update_checker:
                 self.update_checker = None
             
-            # Close all windows
-            for window in self.root.winfo_children():
+            # Close all dialogs and windows first
+            for window in list(self.root.winfo_children()):
                 if hasattr(window, 'destroy'):
                     try:
                         window.destroy()
                     except:
                         pass
             
-            # Destroy main window
-            self.root.quit()  # Stop the mainloop first
+            # Stop the tkinter mainloop
+            self.root.quit()
+            
+            # Destroy the root window
             self.root.destroy()
             
-            # Ensure complete process termination
+            # Force garbage collection to release references
+            import gc
+            gc.collect()
+            
+            # Give the system time to release all handles
+            import time
+            time.sleep(0.5)
+            
+            # Force exit the process completely
             import os
             os._exit(0)
-        except:
-            # If all else fails, force terminate
+            
+        except Exception as e:
+            # If anything fails, force terminate immediately
             import os
             os._exit(0)
     

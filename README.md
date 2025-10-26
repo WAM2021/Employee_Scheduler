@@ -1,11 +1,11 @@
 # Employee Scheduler
 
-A comprehensive employee scheduling application with auto-update capabilities.
+A comprehensive employee scheduling application with automatic update capabilities.
 
 ## Features
 
 - 📅 **Visual Calendar Interface** - Easy-to-use monthly calendar view
-- 👥 **Employee Management** - Add, edit, and manage employee information
+- 👥 **Employee Management** - Add, edit, and manage employee information  
 - ⏰ **Shift Scheduling** - Create and manage work shifts with conflict detection
 - 🔄 **Auto-Update System** - Automatic updates from GitHub releases
 - 📱 **Responsive Design** - Scales with window size and font preferences
@@ -39,22 +39,27 @@ pyinstaller --onefile --windowed WorkScheduler.py
 
 ## Auto-Update System
 
-The application includes an intelligent auto-update system:
-- Checks for updates on startup
-- Downloads and installs updates automatically
-- Preserves all user data during updates
+The application includes an intelligent auto-update system that:
+- Automatically checks for updates on startup and every 30 minutes
+- Downloads and installs updates seamlessly in the background
+- Preserves all user data and settings during updates
+- Provides user control over when updates are applied
 
-See [Auto-Update User Guide](AUTO_UPDATE_USER_GUIDE.md) for details.
+## File Structure
 
-## Documentation
+- `WorkScheduler.py` - Main application file
+- `employees.json` - Employee data storage (created automatically)
+- `build_exe.bat` - Executable build script
+- `requirements.txt` - Python dependencies
 
-- [Auto-Update User Guide](AUTO_UPDATE_USER_GUIDE.md) - How to use the update system
-- [Update Setup Guide](UPDATE_SETUP_GUIDE.md) - How to set up GitHub releases
+## License
+
+This project is open source. Feel free to use, modify, and distribute.
 
 ## System Requirements
 
 - Windows 10 or later
-- 50MB free disk space
+- 50MB free disk space  
 - Internet connection (for updates)
 
 ## Privacy & Security
@@ -62,14 +67,6 @@ See [Auto-Update User Guide](AUTO_UPDATE_USER_GUIDE.md) for details.
 - All employee data stays local on your computer
 - No data is transmitted except for update checks
 - Updates are downloaded securely from GitHub
-
-## Version History
-
-- **v1.2.x**: Auto-update system, UI improvements
-- **v1.1.x**: Advanced calendar features, drag-and-drop
-- **v1.0.x**: Initial release with basic scheduling
-
-## Support
 
 For issues or questions:
 1. Check the documentation files
