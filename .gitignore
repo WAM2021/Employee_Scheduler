@@ -58,3 +58,7 @@ docs/_build/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
+UI_MODERNIZATION_SUMMARY.md
+DARK_MODE_SUMMARY.md
+CELL_EDITING_MODERNIZATION.md
+RESIZE_HANDLING_FIX.md

@@ -21,7 +21,7 @@ class UpdateAssistant:
     def __init__(self, root):
         self.root = root
         self.root.title("Employee Scheduler Update Assistant")
-        self.root.geometry("600x500")
+        self.root.geometry("800x650")
         self.root.resizable(False, False)
         
         # Center the window
@@ -105,9 +105,9 @@ class UpdateAssistant:
         
         # Configure button style
         button_config = {
-            "font": ("Arial", 11, "bold"),
-            "height": 2,
-            "width": 12,
+            "font": ("Arial", 12, "bold"),
+            "height": 3,
+            "width": 16,
             "relief": "raised",
             "bd": 2
         }

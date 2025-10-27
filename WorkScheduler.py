@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.0.1"  # Current version of the application
+APP_VERSION = "1.1.0"  # Current version of the application
 GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
@@ -78,6 +78,25 @@ def generate_times(start_str, end_str, interval_minutes=30):
         times.append(current.strftime(TIME_FMT))
         current += timedelta(minutes=interval_minutes)
     return times
+
+def get_store_hours_for_date(date_str, store_hours_data):
+    """Get store hours for a specific date based on day of week."""
+    try:
+        date_obj = datetime.strptime(date_str, DATE_FMT)
+        day_name = date_obj.strftime('%A').lower()
+        store_hours = store_hours_data.get(day_name)
+        
+        if store_hours is None:
+            # Store is closed this day
+            return None
+        elif isinstance(store_hours, list) and len(store_hours) == 2:
+            return store_hours
+        else:
+            # Fallback to default hours
+            return ["8:30 AM", "7:00 PM"]
+    except:
+        # Fallback to default hours on any error
+        return ["8:30 AM", "7:00 PM"]
 
 # Auto-Update System Functions
 def version_compare(version1, version2):
@@ -232,29 +251,93 @@ class WorkSchedulerApp:
         # Set initial window size
         self.root.geometry("1024x768")
         
-        # Set darker background for main window
-        self.root.configure(bg='#B4B4B4')
+        # Dark Mode Color Palette - Professional and Eye-friendly
+        self.colors = {
+            'primary': '#60a5fa',        # Bright blue (readable on dark)
+            'primary_dark': '#3b82f6',   # Slightly darker blue for hover
+            'secondary': '#6b7280',      # Medium gray
+            'background': '#111827',     # Dark background (almost black)
+            'surface': '#1f2937',        # Dark surface containers
+            'surface_alt': '#374151',    # Lighter dark surface for alternatives
+            'text_primary': '#f9fafb',   # Light text (almost white)
+            'text_secondary': '#d1d5db',  # Medium light gray text
+            'text_muted': '#9ca3af',     # Muted gray text
+            'success': '#10b981',        # Bright green
+            'warning': '#f59e0b',        # Bright orange
+            'danger': '#ef4444',         # Bright red
+            'border': '#4b5563',         # Dark border color
+            'accent': '#8b5cf6'          # Bright purple accent
+        }
         
-        # Configure Combobox styles
+        # Add error handling for color access
+        def get_color(self, key, fallback='#ffffff'):
+            """Safely get a color from the palette with fallback"""
+            return self.colors.get(key, fallback)
+        
+        # Bind the method to the instance
+        self.get_color = get_color.__get__(self, type(self))
+        
+        # Set modern background for main window
+        self.root.configure(bg=self.colors['background'])
+        
+        # Configure modern styles
         self.style = ttk.Style()
         
-        # Configure Notebook (tabs) style with cyan blue color scheme
-        self.style.configure('TNotebook', background='#49D3E6', borderwidth=0)
+        # Configure Notebook (tabs) with dark mode styling
+        self.style.configure('TNotebook', 
+                           background=self.colors['surface'], 
+                           borderwidth=0,
+                           tabmargins=[2, 5, 2, 0])
         self.style.configure('TNotebook.Tab', 
-                           background='#3AB8CC',  # Slightly darker cyan for inactive tabs
-                           foreground='white')
+                           background=self.colors['surface_alt'],
+                           foreground=self.colors['text_secondary'],
+                           padding=[20, 10],
+                           borderwidth=0)
         self.style.map('TNotebook.Tab',
-                      background=[('selected', '#49D3E6')],  # Brighter cyan for active tab
-                      foreground=[('selected', 'white')])
+                      background=[('selected', self.colors['primary']),
+                                ('active', self.colors['primary_dark'])],
+                      foreground=[('selected', 'white'),
+                                ('active', 'white')])
         
-        # Normal state - white background
+        # Dark mode Combobox styling
+        self.style.configure('TCombobox',
+                           fieldbackground=self.colors['surface'],
+                           background=self.colors['surface'],
+                           bordercolor=self.colors['border'],
+                           arrowcolor=self.colors['text_secondary'],
+                           focuscolor=self.colors['primary'],
+                           foreground=self.colors['text_primary'])
         self.style.map('TCombobox',
-            fieldbackground=[('disabled', 'SystemButtonFace'),
-                           ('readonly', 'white')],
-            selectbackground=[('disabled', 'SystemButtonFace'),
-                            ('readonly', 'SystemHighlight')],
-            selectforeground=[('disabled', 'SystemGrayText'),
-                            ('readonly', 'SystemHighlightText')])
+            fieldbackground=[('disabled', self.colors['surface_alt']),
+                           ('readonly', self.colors['surface'])],
+            selectbackground=[('disabled', self.colors['surface_alt']),
+                            ('readonly', self.colors['primary'])],
+            selectforeground=[('disabled', self.colors['text_muted']),
+                            ('readonly', 'white')],
+            foreground=[('disabled', self.colors['text_muted']),
+                       ('readonly', self.colors['text_primary'])])
+        
+        # Dark mode Button styling
+        self.style.configure('TButton',
+                           background=self.colors['surface_alt'],
+                           foreground=self.colors['text_primary'],
+                           bordercolor=self.colors['border'],
+                           focuscolor=self.colors['primary'])
+        self.style.map('TButton',
+                      background=[('active', self.colors['primary']),
+                                ('pressed', self.colors['primary_dark'])],
+                      foreground=[('active', 'white'),
+                                ('pressed', 'white')])
+        
+        # Dark mode Frame styling  
+        self.style.configure('TFrame',
+                           background=self.colors['surface'],
+                           bordercolor=self.colors['border'])
+        
+        # Dark mode Label styling
+        self.style.configure('TLabel',
+                           background=self.colors['surface'],
+                           foreground=self.colors['text_primary'])
         
         # Initialize size parameters
         self.min_font_size = 8
@@ -279,18 +362,24 @@ class WorkSchedulerApp:
             'listbox': None
         }
         
-        self.admin_tab_widgets = {
+        self.store_hours_tab_widgets = {
             'headers': [],
             'labels': []
         }
         
         # Ctrl+drag state for copying shifts
         self.ctrl_drag_data = {"active": False, "source_day": None, "source_shifts": None, "source_widget": None}
+        
+        # Initialize clipboard for copy/paste functionality
+        self.copied_shifts = None
 
         # Data
         self.data = load_data()
         if "schedule" not in self.data:
             self.data["schedule"] = {}
+            
+        # Initialize application settings
+        self.init_settings()
             
         # Current month shown
         today = date.today()
@@ -311,25 +400,32 @@ class WorkSchedulerApp:
         # Create tabs
         self.employee_tab = tk.Frame(self.notebook)
         self.schedule_tab = tk.Frame(self.notebook)
-        self.admin_tab = tk.Frame(self.notebook)
+        self.store_hours_tab = tk.Frame(self.notebook)
         
         # Make tabs responsive
         self.employee_tab.grid_rowconfigure(0, weight=1)
         self.employee_tab.grid_columnconfigure(1, weight=3)  # Make center column expand more
         self.schedule_tab.grid_rowconfigure(1, weight=1)
         self.schedule_tab.grid_columnconfigure(0, weight=1)
-        self.admin_tab.grid_rowconfigure(0, weight=1)
-        self.admin_tab.grid_columnconfigure(0, weight=1)
+        self.store_hours_tab.grid_rowconfigure(0, weight=1)
+        self.store_hours_tab.grid_columnconfigure(0, weight=1)
 
         # Add tabs to notebook
         self.notebook.add(self.employee_tab, text="Employee Manager")
         self.notebook.add(self.schedule_tab, text="Schedule (Month View)")
-        self.notebook.add(self.admin_tab, text="Admin")
+        self.notebook.add(self.store_hours_tab, text="Store Hours")
 
         # Build UI
         self.setup_employee_tab()
         self.setup_schedule_tab()
-        self.setup_admin_tab()
+        self.setup_store_hours_tab()
+        
+        # Show splash screen if enabled
+        if self.get_setting('show_splash_screen', True):
+            self.show_splash_screen()
+        else:
+            # If splash screen is disabled, show the main window immediately
+            self.root.deiconify()
         
         # Check for updates on startup (in background)
         self.check_for_updates_on_startup()
@@ -339,9 +435,73 @@ class WorkSchedulerApp:
         
         # Bind resize event
         self.root.bind("<Configure>", self.on_window_resize)
+        
+    def create_modern_button(self, parent, text, command=None, style='primary', width=None):
+        """Create a modern styled button with hover effects"""
+        if style == 'primary':
+            bg_color = self.colors['primary']
+            hover_color = self.colors['primary_dark']
+            text_color = 'white'
+        elif style == 'secondary':
+            bg_color = self.colors['secondary']
+            hover_color = self.colors['text_primary']
+            text_color = 'white'
+        elif style == 'success':
+            bg_color = self.colors['success']
+            hover_color = '#047857'
+            text_color = 'white'
+        elif style == 'danger':
+            bg_color = self.colors['danger']
+            hover_color = '#b91c1c'
+            text_color = 'white'
+        else:  # default/surface
+            bg_color = self.colors['surface']
+            hover_color = self.colors['surface_alt']
+            text_color = self.colors['text_primary']
+            
+        base_font_size = self.calculate_font_size()
+        
+        btn = tk.Button(parent, 
+                       text=text,
+                       command=command,
+                       bg=bg_color,
+                       fg=text_color,
+                       font=("Segoe UI", base_font_size, "normal"),
+                       relief='flat',
+                       borderwidth=0,
+                       pady=8,
+                       padx=16,
+                       cursor='hand2')
+        
+        if width:
+            btn.configure(width=width)
+            
+        # Add hover effects
+        def on_enter(e):
+            btn.configure(bg=hover_color)
+        def on_leave(e):
+            btn.configure(bg=bg_color)
+            
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+        
+        return btn
+        
+    def create_modern_frame(self, parent, padding=15):
+        """Create a modern styled frame with subtle shadow effect"""
+        frame = tk.Frame(parent, 
+                        bg=self.colors['surface'],
+                        relief='flat',
+                        bd=1,
+                        highlightbackground=self.colors['border'],
+                        highlightthickness=1)
+        return frame
             
     def center_dialog(self, dialog, width=None, height=None):
-        """Center a dialog window relative to the main window"""
+        """Center a dialog window relative to the main window and apply modern styling"""
+        # Apply modern styling to dialog
+        dialog.configure(bg=self.colors['background'])
+        
         # Set size first
         if width and height:
             dialog.geometry(f"{width}x{height}")
@@ -387,6 +547,13 @@ class WorkSchedulerApp:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
         
+        # Settings menu
+        settings_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Settings", menu=settings_menu)
+        settings_menu.add_command(label="Preferences", command=self.show_settings_dialog)
+        settings_menu.add_separator()
+        settings_menu.add_command(label="Reset to Defaults", command=self.reset_settings_to_defaults)
+        
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
@@ -428,6 +595,115 @@ Brought to you by WILLSTER"""
         
         # Close button
         tk.Button(content_frame, text="Close", command=dialog.destroy).pack(pady=(20, 0))
+        
+    def show_splash_screen(self):
+        """Show a simple splash screen on startup"""
+        # Create simple splash window
+        splash = tk.Toplevel(self.root)
+        splash.title("Work Scheduler")
+        splash.resizable(False, False)
+        splash.overrideredirect(True)  # Remove window decorations
+        
+        # Center splash on screen
+        splash_width = 400
+        splash_height = 300
+        screen_width = splash.winfo_screenwidth()
+        screen_height = splash.winfo_screenheight()
+        x = (screen_width - splash_width) // 2
+        y = (screen_height - splash_height) // 2
+        splash.geometry(f"{splash_width}x{splash_height}+{x}+{y}")
+        
+        splash.configure(bg=self.colors['background'])
+        splash.attributes("-topmost", True)
+        
+        # Header section
+        header_frame = tk.Frame(splash, bg=self.colors['primary'], height=100)
+        header_frame.pack(fill="x")
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text="📅", font=("Arial", 32), 
+                bg=self.colors['primary'], fg="white").pack(pady=(20, 5))
+        
+        tk.Label(header_frame, text="Work Scheduler", 
+                font=("Arial", 18, "bold"), 
+                bg=self.colors['primary'], fg="white").pack()
+        
+        # Content section
+        content_frame = tk.Frame(splash, bg=self.colors['background'], pady=30)
+        content_frame.pack(fill="both", expand=True)
+        
+        tk.Label(content_frame, text="Starting Employee Scheduler...", 
+                font=("Arial", 12), 
+                bg=self.colors['background'], fg=self.colors['text_primary']).pack(pady=20)
+        
+        # Progress bar
+        progress_frame = tk.Frame(content_frame, bg=self.colors['border'], height=6, width=250)
+        progress_frame.pack(pady=10)
+        progress_frame.pack_propagate(False)
+        
+        progress_bar = tk.Frame(progress_frame, bg=self.colors['primary'], height=4)
+        progress_bar.pack(side="left", fill="y", padx=1, pady=1)
+        
+        # Bottom section
+        bottom_frame = tk.Frame(splash, bg=self.colors['background'], height=60)
+        bottom_frame.pack(fill="x", side="bottom")
+        bottom_frame.pack_propagate(False)
+        
+        tk.Label(bottom_frame, text=f"Version {APP_VERSION}", 
+                font=("Arial", 9), 
+                bg=self.colors['background'], fg=self.colors['text_secondary']).pack(pady=(10, 5))
+        
+        tk.Label(bottom_frame, text="Brought to you by WILLSTER", 
+                font=("Arial", 9), 
+                bg=self.colors['background'], fg=self.colors['text_secondary']).pack()
+        
+        # Don't show again option
+        dont_show_var = tk.BooleanVar()
+        dont_show_cb = tk.Checkbutton(bottom_frame, text="Don't show again", 
+                                     variable=dont_show_var,
+                                     font=("Arial", 8),
+                                     bg=self.colors['background'],
+                                     fg=self.colors['text_secondary'],
+                                     selectcolor=self.colors['surface'])
+        dont_show_cb.pack(side="bottom", pady=5)
+        
+        def on_dont_show_changed():
+            if dont_show_var.get():
+                self.set_setting('show_splash_screen', False)
+        
+        dont_show_var.trace('w', lambda *args: on_dont_show_changed())
+        
+        # Animate progress bar
+        def animate_progress():
+            current_width = progress_bar.winfo_width()
+            if current_width < 240:  # Target width
+                progress_bar.configure(width=current_width + 6)
+                splash.after(50, animate_progress)
+            else:
+                # Animation complete, close splash
+                splash.after(1000, close_and_show)
+        
+        # Timer to close and show main window
+        def close_and_show():
+            splash.destroy()
+            self.root.deiconify()
+            self.root.lift()
+            
+        # Start animation and set backup timer
+        splash.after(100, animate_progress)
+        splash.after(3000, close_and_show)  # Backup timer
+    
+    def close_splash_and_show_main(self, splash):
+        """Helper method to properly close splash and show main window"""
+        try:
+            splash.grab_release()
+        except:
+            pass
+        splash.destroy()
+        # Show the main window
+        self.root.deiconify()
+        self.root.lift()  # Bring to front
+        self.root.focus_force()  # Give it focus
         
     def show_changelog_dialog(self, old_version, new_version):
         """Show changelog dialog after an update"""
@@ -471,33 +747,8 @@ Brought to you by WILLSTER"""
         scrollbar = tk.Scrollbar(changelog_frame, orient="vertical", command=changelog_text.yview)
         changelog_text.configure(yscrollcommand=scrollbar.set)
         
-        # Changelog content
-        changelog_content = f"""✨ Enhanced Auto-Update System
-• Improved reliability and error handling
-• Better process management during updates
-• Comprehensive logging for troubleshooting
-
-🔧 Technical Improvements  
-• Fixed DLL loading issues during restart
-• Enhanced PowerShell script with multiple restart methods
-• Better cleanup of temporary files
-
-🛡️ Stability Enhancements
-• Improved application shutdown sequence
-• Better memory management and garbage collection
-• Enhanced backup and restore functionality
-
-🎯 User Experience
-• Smoother update process
-• Better progress feedback
-• Automatic preservation of all settings and data
-
-📋 Bug Fixes
-• Resolved multiple instance issues
-• Fixed various edge cases in update process
-• Improved compatibility across different Windows versions"""
-
-        changelog_text.insert("1.0", changelog_content)
+        # Initially show loading message
+        changelog_text.insert("1.0", "Loading release notes...")
         changelog_text.config(state="disabled")
         
         changelog_text.pack(side="left", fill="both", expand=True)
@@ -515,6 +766,714 @@ Brought to you by WILLSTER"""
         tk.Button(button_frame, text="Continue", command=close_and_cleanup, 
                  bg="#4CAF50", fg="white", font=("Arial", 10, "bold")).pack(side="right")
         
+        # Fetch release notes asynchronously
+        def fetch_release_notes_callback(latest_version, download_url, release_notes):
+            """Callback to update changelog with fetched release notes"""
+            try:
+                changelog_text.config(state="normal")
+                changelog_text.delete("1.0", tk.END)
+                
+                if release_notes and release_notes.strip():
+                    # Format the GitHub markdown for better display
+                    formatted_notes = self.format_github_markdown(release_notes)
+                    changelog_text.insert("1.0", formatted_notes)
+                else:
+                    # Fallback content if no release notes available
+                    fallback_content = f"""✨ Employee Scheduler v{new_version}
+
+🎉 Successfully updated from v{old_version} to v{new_version}!
+
+🔧 Improvements and fixes included in this release.
+
+📋 For detailed release notes, visit:
+https://github.com/{GITHUB_REPO}/releases/tag/v{new_version}
+
+Thank you for keeping your application up to date!"""
+                    changelog_text.insert("1.0", fallback_content)
+                    
+                changelog_text.config(state="disabled")
+            except Exception as e:
+                # Fallback if there's an error updating the text
+                print(f"Error updating changelog: {e}")
+        
+        # Fetch the latest release notes
+        check_for_updates(fetch_release_notes_callback)
+    
+    def format_github_markdown(self, markdown_text):
+        """Convert GitHub markdown to plain text suitable for Tkinter Text widget"""
+        import re
+        
+        # Start with the original text
+        text = markdown_text
+        
+        # Remove markdown headers (keep the text but make it stand out)
+        text = re.sub(r'^#{1,6}\s*(.+)$', r'🔹 \1', text, flags=re.MULTILINE)
+        
+        # Convert bullet points
+        text = re.sub(r'^\s*[-*+]\s+(.+)$', r'• \1', text, flags=re.MULTILINE)
+        
+        # Convert numbered lists
+        text = re.sub(r'^\s*\d+\.\s+(.+)$', r'• \1', text, flags=re.MULTILINE)
+        
+        # Remove bold/italic markdown (keep the text)
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'\*(.+?)\*', r'\1', text)
+        text = re.sub(r'__(.+?)__', r'\1', text)
+        text = re.sub(r'_(.+?)_', r'\1', text)
+        
+        # Convert code blocks to simple quotes
+        text = re.sub(r'```[\s\S]*?```', r'[Code block]', text)
+        text = re.sub(r'`(.+?)`', r'"\1"', text)
+        
+        # Clean up links (show just the text part)
+        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        
+        # Clean up excessive whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = text.strip()
+        
+        return text
+    
+    def open_day_editor_dialog(self, day_str, shifts):
+        """Open a day-specific shift editor dialog"""
+        from datetime import datetime
+        
+        # Parse the day for display
+        try:
+            day_dt = datetime.strptime(day_str, DATE_FMT)
+            day_name = day_dt.strftime("%A")
+            formatted_date = day_dt.strftime("%B %d, %Y")
+        except:
+            day_name = "Unknown"
+            formatted_date = day_str
+        
+        # Create dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Edit Schedule - {formatted_date}")
+        dialog.resizable(True, True)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        self.center_dialog(dialog, 700, 600)  # Made larger to ensure everything fits
+        
+        # Header with day info
+        header_frame = tk.Frame(dialog, bg="#4A90E2", height=60)
+        header_frame.pack(fill="x")
+        header_frame.pack_propagate(False)
+        
+        header_content = tk.Frame(header_frame, bg="#4A90E2")
+        header_content.pack(expand=True, fill="both", padx=20, pady=10)
+        
+        tk.Label(header_content, text=f"{day_name}", 
+                font=("Segoe UI", 18, "bold"), 
+                bg="#4A90E2", fg="white").pack(anchor="w")
+        tk.Label(header_content, text=formatted_date, 
+                font=("Segoe UI", 11), 
+                bg="#4A90E2", fg="white").pack(anchor="w")
+        
+        # Main content frame
+        content_frame = tk.Frame(dialog)
+        content_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Current shifts section
+        shifts_frame = tk.LabelFrame(content_frame, text="Current Shifts", font=("Segoe UI", 10, "bold"))
+        shifts_frame.pack(fill="both", expand=True, pady=(0, 15))
+        
+        # Scrollable frame for shifts
+        canvas = tk.Canvas(shifts_frame, height=200)
+        scrollbar = ttk.Scrollbar(shifts_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Refresh shifts list function
+        def refresh_shifts_list():
+            # Clear existing widgets
+            for widget in scrollable_frame.winfo_children():
+                widget.destroy()
+            
+            # Get current shifts for this day
+            month_key = f"{day_dt.year}-{day_dt.month:02d}"
+            current_shifts = self.data.get("schedule", {}).get(month_key, {}).get(day_str, [])
+            
+            if not current_shifts:
+                no_shifts_label = tk.Label(scrollable_frame, 
+                                         text="No shifts scheduled for this day",
+                                         font=("Segoe UI", 10),
+                                         fg="gray")
+                no_shifts_label.pack(pady=20)
+                return
+
+            # Create header row
+            header_frame = tk.Frame(scrollable_frame, bg="#f0f0f0", padx=10, pady=5)
+            header_frame.pack(fill="x", padx=5, pady=(5, 2))
+            
+            # Configure grid columns for header
+            header_frame.grid_columnconfigure(0, weight=2, minsize=150)  # Employee name column
+            header_frame.grid_columnconfigure(1, weight=2, minsize=120)  # Time column
+            header_frame.grid_columnconfigure(2, weight=1, minsize=120)  # Actions column
+            
+            tk.Label(header_frame, text="Employee", font=("Segoe UI", 10, "bold"), 
+                    bg="#f0f0f0").grid(row=0, column=0, sticky="w", padx=(5, 0))
+            tk.Label(header_frame, text="Shift Hours", font=("Segoe UI", 10, "bold"), 
+                    bg="#f0f0f0").grid(row=0, column=1, sticky="w", padx=(5, 0))
+            tk.Label(header_frame, text="Actions", font=("Segoe UI", 10, "bold"), 
+                    bg="#f0f0f0").grid(row=0, column=2, sticky="w", padx=(5, 0))
+
+            # Display each shift in columns
+            for i, shift in enumerate(current_shifts):
+                shift_frame = tk.Frame(scrollable_frame, relief="solid", bd=1, padx=10, pady=6)
+                shift_frame.pack(fill="x", padx=5, pady=1)
+                
+                # Configure grid columns for shift row
+                shift_frame.grid_columnconfigure(0, weight=2, minsize=150)  # Employee name column
+                shift_frame.grid_columnconfigure(1, weight=2, minsize=120)  # Time column
+                shift_frame.grid_columnconfigure(2, weight=1, minsize=120)  # Actions column
+                
+                # Employee name (column 0)
+                emp_label = tk.Label(shift_frame, 
+                                   text=shift['employee'], 
+                                   font=("Segoe UI", 11, "bold"),
+                                   anchor="w")
+                emp_label.grid(row=0, column=0, sticky="w", padx=(5, 0))
+                
+                # Time info (column 1)
+                time_label = tk.Label(shift_frame, 
+                                    text=f"{shift['start']} - {shift['end']}", 
+                                    font=("Segoe UI", 10, "bold"),
+                                    fg="#666",
+                                    anchor="w")
+                time_label.grid(row=0, column=1, sticky="w", padx=(5, 0))
+                
+                # Action buttons frame (column 2)
+                btn_frame = tk.Frame(shift_frame)
+                btn_frame.grid(row=0, column=2, sticky="w", padx=(5, 0))
+                
+                # Edit button
+                def edit_shift(shift_index=i):
+                    self.edit_shift_dialog(dialog, day_str, shift_index, refresh_shifts_list)
+                
+                edit_btn = tk.Button(btn_frame, text="✎", 
+                                   command=edit_shift,
+                                   bg="#FFA726", fg="white",
+                                   font=("Segoe UI", 9),
+                                   relief="flat", width=3, height=1)
+                edit_btn.pack(side="left", padx=(0, 3))
+                
+                # Delete button
+                def delete_shift(shift_index=i):
+                    if messagebox.askyesno("Confirm Delete", 
+                                         f"Delete shift for {shift['employee']}?"):
+                        month_key = f"{day_dt.year}-{day_dt.month:02d}"
+                        self.data["schedule"][month_key][day_str].pop(shift_index)
+                        if not self.data["schedule"][month_key][day_str]:
+                            del self.data["schedule"][month_key][day_str]
+                        save_data(self.data)
+                        refresh_shifts_list()
+                        self.draw_calendar()
+                
+                delete_btn = tk.Button(btn_frame, text="🗑", 
+                                     command=delete_shift,
+                                     bg="#F44336", fg="white",
+                                     font=("Segoe UI", 9),
+                                     relief="flat", width=3, height=1)
+                delete_btn.pack(side="left")
+        
+        # Add new shift section
+        add_frame = tk.LabelFrame(content_frame, text="Add New Shift", font=("Segoe UI", 10, "bold"))
+        add_frame.pack(fill="x", pady=(0, 15))
+        
+        add_content = tk.Frame(add_frame)
+        add_content.pack(fill="x", padx=15, pady=15)  # Increased padding
+        
+        # Employee selection
+        tk.Label(add_content, text="Employee:", font=("Segoe UI", 10, "bold")).grid(row=0, column=0, sticky="w", pady=8)
+        emp_var = tk.StringVar()
+        employee_names = [emp.get("name", emp.get("display_name", "Unknown")) for emp in self.data.get("employees", [])]
+        # Sort employees alphabetically (case-insensitive)
+        employee_names.sort(key=str.lower)
+        emp_combo = ttk.Combobox(add_content, textvariable=emp_var, values=employee_names, 
+                               state="readonly", width=25, font=("Segoe UI", 10))
+        emp_combo.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=8)
+        
+        # Time selection with better spacing
+        tk.Label(add_content, text="Start Time:", font=("Segoe UI", 10, "bold")).grid(row=1, column=0, sticky="w", pady=8)
+        start_var = tk.StringVar()
+        
+        # Get store hours for this specific date
+        store_hours = get_store_hours_for_date(day_str, self.data.get("store_hours", {}))
+        if store_hours:
+            start_times = generate_times(store_hours[0], store_hours[1])
+            end_times = generate_times(store_hours[0], store_hours[1])
+        else:
+            # Store is closed, use minimal times or show message
+            start_times = generate_times("6:00 AM", "11:00 PM")
+            end_times = generate_times("6:00 AM", "11:59 PM")
+        
+        start_combo = ttk.Combobox(add_content, textvariable=start_var, 
+                                 values=start_times, width=15, font=("Segoe UI", 10))
+        start_combo.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=8)
+        
+        tk.Label(add_content, text="End Time:", font=("Segoe UI", 10, "bold")).grid(row=2, column=0, sticky="w", pady=8)
+        end_var = tk.StringVar()
+        end_combo = ttk.Combobox(add_content, textvariable=end_var, 
+                               values=end_times, width=15, font=("Segoe UI", 10))
+        end_combo.grid(row=2, column=1, sticky="w", padx=(10, 0), pady=8)
+        
+        # Configure grid weights for better expansion
+        add_content.grid_columnconfigure(1, weight=1)
+        
+        # Add some helpful placeholder text
+        emp_combo.set("Select Employee...")
+        start_combo.set("Select Start Time...")
+        end_combo.set("Select End Time...")
+        
+        # Add shift function
+        def add_new_shift():
+            emp_name = emp_var.get()
+            start_time = start_var.get()
+            end_time = end_var.get()
+            
+            if not emp_name or not start_time or not end_time:
+                messagebox.showwarning("Missing Information", 
+                                     "Please select employee, start time, and end time.")
+                return
+            
+            # Use comprehensive validation
+            is_valid, conflicts = self.validate_shift_scheduling(
+                emp_name, day_str, start_time, end_time, show_dialog=True)
+            
+            if not is_valid:
+                return  # User chose not to proceed or validation failed
+            
+            # Add the shift
+            month_key = f"{day_dt.year}-{day_dt.month:02d}"
+            if "schedule" not in self.data:
+                self.data["schedule"] = {}
+            if month_key not in self.data["schedule"]:
+                self.data["schedule"][month_key] = {}
+            if day_str not in self.data["schedule"][month_key]:
+                self.data["schedule"][month_key][day_str] = []
+            
+            self.data["schedule"][month_key][day_str].append({
+                "employee": emp_name,
+                "start": start_time,
+                "end": end_time
+            })
+            
+            save_data(self.data)
+            refresh_shifts_list()
+            self.draw_calendar()
+            
+            # Clear form
+            emp_var.set("")
+            start_var.set("")
+            end_var.set("")
+        
+        # Add button with better spacing
+        add_btn = tk.Button(add_content, text="➕ Add Shift", 
+                          command=add_new_shift,
+                          bg="#4CAF50", fg="white",
+                          font=("Segoe UI", 11, "bold"),
+                          relief="flat", padx=25, pady=8)
+        add_btn.grid(row=3, column=0, columnspan=2, pady=20)
+        
+        # Bottom buttons
+        btn_frame = tk.Frame(content_frame)
+        btn_frame.pack(fill="x")
+        
+        tk.Button(btn_frame, text="Close", 
+                 command=dialog.destroy,
+                 font=("Segoe UI", 10),
+                 padx=20, pady=5).pack(side="right")
+        
+        # Initial load
+        refresh_shifts_list()
+        
+    def edit_shift_dialog(self, parent_dialog, day_str, shift_index, refresh_callback):
+        """Open edit dialog for a specific shift"""
+        from datetime import datetime
+        
+        day_dt = datetime.strptime(day_str, DATE_FMT)
+        month_key = f"{day_dt.year}-{day_dt.month:02d}"
+        shift = self.data["schedule"][month_key][day_str][shift_index]
+        
+        # Create edit dialog
+        edit_dialog = tk.Toplevel(parent_dialog)
+        edit_dialog.title("Edit Shift")
+        edit_dialog.resizable(False, False)
+        edit_dialog.transient(parent_dialog)
+        edit_dialog.grab_set()
+        
+        self.center_dialog(edit_dialog, 350, 200)
+        
+        content = tk.Frame(edit_dialog, padx=20, pady=20)
+        content.pack(fill="both", expand=True)
+        
+        # Employee
+        tk.Label(content, text="Employee:", font=("Segoe UI", 10)).grid(row=0, column=0, sticky="w", pady=5)
+        emp_var = tk.StringVar(value=shift['employee'])
+        employee_names = [emp.get("name", emp.get("display_name", "Unknown")) for emp in self.data.get("employees", [])]
+        # Sort employees alphabetically (case-insensitive)
+        employee_names.sort(key=str.lower)
+        emp_combo = ttk.Combobox(content, textvariable=emp_var, values=employee_names, 
+                               state="readonly", width=20)
+        emp_combo.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
+        
+        # Times
+        tk.Label(content, text="Start Time:", font=("Segoe UI", 10)).grid(row=1, column=0, sticky="w", pady=5)
+        start_var = tk.StringVar(value=shift['start'])
+        
+        # Get store hours for this specific date
+        store_hours = get_store_hours_for_date(day_str, self.data.get("store_hours", {}))
+        if store_hours:
+            start_time_values = generate_times(store_hours[0], store_hours[1])
+            end_time_values = generate_times(store_hours[0], store_hours[1])
+        else:
+            # Store is closed, use minimal times or show message
+            start_time_values = generate_times("6:00 AM", "11:00 PM")
+            end_time_values = generate_times("6:00 AM", "11:59 PM")
+        
+        start_combo = ttk.Combobox(content, textvariable=start_var, 
+                                 values=start_time_values, width=12)
+        start_combo.grid(row=1, column=1, sticky="w", padx=(10, 0), pady=5)
+        
+        tk.Label(content, text="End Time:", font=("Segoe UI", 10)).grid(row=2, column=0, sticky="w", pady=5)
+        end_var = tk.StringVar(value=shift['end'])
+        end_combo = ttk.Combobox(content, textvariable=end_var, 
+                               values=end_time_values, width=12)
+        end_combo.grid(row=2, column=1, sticky="w", padx=(10, 0), pady=5)
+        
+        content.grid_columnconfigure(1, weight=1)
+        
+        # Buttons
+        btn_frame = tk.Frame(content)
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=20)
+        
+        def save_changes():
+            emp_name = emp_var.get()
+            start_time = start_var.get()
+            end_time = end_var.get()
+            
+            if not emp_name or not start_time or not end_time:
+                messagebox.showwarning("Missing Information", 
+                                     "Please fill all fields.")
+                return
+            
+            # Use comprehensive validation (exclude current shift from overlap check)
+            is_valid, conflicts = self.validate_shift_scheduling(
+                emp_name, day_str, start_time, end_time, 
+                exclude_shift_index=shift_index, show_dialog=True)
+            
+            if not is_valid:
+                return  # User chose not to proceed or validation failed
+            
+            # Update shift
+            self.data["schedule"][month_key][day_str][shift_index] = {
+                "employee": emp_name,
+                "start": start_time,
+                "end": end_time
+            }
+            
+            save_data(self.data)
+            refresh_callback()
+            self.draw_calendar()
+            edit_dialog.destroy()
+        
+        tk.Button(btn_frame, text="Save Changes", 
+                 command=save_changes,
+                 bg="#4CAF50", fg="white",
+                 font=("Segoe UI", 10, "bold"),
+                 relief="flat", padx=15).pack(side="right", padx=(5, 0))
+        
+        tk.Button(btn_frame, text="Cancel", 
+                 command=edit_dialog.destroy,
+                 font=("Segoe UI", 10),
+                 padx=15).pack(side="right")
+        
+    def init_settings(self):
+        """Initialize application settings with defaults"""
+        default_settings = {
+            'auto_save_interval': 600,  # milliseconds (10 minutes)
+            'default_shift_length': 8,  # hours
+            'time_format_24h': False,   # Use 12-hour format by default
+            'start_week_on_monday': True,  # Calendar week start
+            'show_employee_icons': True,  # Show emoji icons
+            'auto_backup': True,        # Auto backup data
+            'backup_frequency': 7,      # days
+            'confirm_deletions': True,  # Confirm before deleting
+            'theme': 'dark',            # UI theme
+            'font_scaling': 1.0,        # Font scale multiplier
+            'window_geometry': '1024x768',  # Default window size
+            'remember_window_state': True,  # Remember window position/size
+            'pdf_company_name': 'Your Company',  # For PDF headers
+            'pdf_include_logo': False,  # Include logo in PDFs
+            'default_break_time': 30,   # minutes
+            'overtime_threshold': 40,   # hours per week
+            'show_splash_screen': True  # Show splash screen on startup
+        }
+        
+        # Load settings from data file or use defaults
+        if 'settings' not in self.data:
+            self.data['settings'] = default_settings.copy()
+            save_data(self.data)
+        else:
+            # Merge any new default settings that don't exist
+            for key, value in default_settings.items():
+                if key not in self.data['settings']:
+                    self.data['settings'][key] = value
+            save_data(self.data)
+        
+        self.settings = self.data['settings']
+        
+    def get_setting(self, key, default=None):
+        """Get a setting value with optional default"""
+        return self.settings.get(key, default)
+        
+    def set_setting(self, key, value):
+        """Set a setting value and save to file"""
+        self.settings[key] = value
+        self.data['settings'] = self.settings
+        save_data(self.data)
+        
+    def show_settings_dialog(self):
+        """Show the settings/preferences dialog"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Settings & Preferences")
+        dialog.resizable(True, True)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Set size and center the dialog
+        self.center_dialog(dialog, width=600, height=500)
+        
+        # Apply modern styling
+        dialog.configure(bg=self.colors['background'])
+        
+        # Create notebook for tabbed settings
+        settings_notebook = ttk.Notebook(dialog)
+        settings_notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # General settings tab
+        general_frame = ttk.Frame(settings_notebook, padding="15")
+        settings_notebook.add(general_frame, text="General")
+        
+        # Schedule settings tab
+        schedule_frame = ttk.Frame(settings_notebook, padding="15")
+        settings_notebook.add(schedule_frame, text="Schedule")
+        
+        # Appearance settings tab
+        appearance_frame = ttk.Frame(settings_notebook, padding="15")
+        settings_notebook.add(appearance_frame, text="Appearance")
+        
+        # PDF settings tab
+        pdf_frame = ttk.Frame(settings_notebook, padding="15")
+        settings_notebook.add(pdf_frame, text="PDF Export")
+        
+        # Store references to setting widgets for saving
+        setting_vars = {}
+        
+        # === GENERAL SETTINGS ===
+        ttk.Label(general_frame, text="General Settings", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 15))
+        
+        # Auto-save interval
+        auto_save_frame = ttk.Frame(general_frame)
+        auto_save_frame.pack(fill="x", pady=5)
+        ttk.Label(auto_save_frame, text="Auto-save interval (seconds):").pack(side="left")
+        setting_vars['auto_save_interval'] = tk.IntVar(value=self.get_setting('auto_save_interval', 600) // 1000)
+        auto_save_spin = ttk.Spinbox(auto_save_frame, from_=1, to=60, textvariable=setting_vars['auto_save_interval'], width=10)
+        auto_save_spin.pack(side="right")
+        
+        # Confirm deletions
+        setting_vars['confirm_deletions'] = tk.BooleanVar(value=self.get_setting('confirm_deletions', True))
+        ttk.Checkbutton(general_frame, text="Confirm before deleting items", 
+                       variable=setting_vars['confirm_deletions']).pack(anchor="w", pady=5)
+        
+        # Auto backup
+        setting_vars['auto_backup'] = tk.BooleanVar(value=self.get_setting('auto_backup', True))
+        ttk.Checkbutton(general_frame, text="Enable automatic data backup", 
+                       variable=setting_vars['auto_backup']).pack(anchor="w", pady=5)
+        
+        # Remember window state
+        setting_vars['remember_window_state'] = tk.BooleanVar(value=self.get_setting('remember_window_state', True))
+        ttk.Checkbutton(general_frame, text="Remember window size and position", 
+                       variable=setting_vars['remember_window_state']).pack(anchor="w", pady=5)
+        
+        # === SCHEDULE SETTINGS ===
+        ttk.Label(schedule_frame, text="Schedule Settings", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 15))
+        
+        # Default shift length
+        shift_length_frame = ttk.Frame(schedule_frame)
+        shift_length_frame.pack(fill="x", pady=5)
+        ttk.Label(shift_length_frame, text="Default shift length (hours):").pack(side="left")
+        setting_vars['default_shift_length'] = tk.IntVar(value=self.get_setting('default_shift_length', 8))
+        shift_spin = ttk.Spinbox(shift_length_frame, from_=1, to=24, textvariable=setting_vars['default_shift_length'], width=10)
+        shift_spin.pack(side="right")
+        
+        # Break time
+        break_frame = ttk.Frame(schedule_frame)
+        break_frame.pack(fill="x", pady=5)
+        ttk.Label(break_frame, text="Default break time (minutes):").pack(side="left")
+        setting_vars['default_break_time'] = tk.IntVar(value=self.get_setting('default_break_time', 30))
+        break_spin = ttk.Spinbox(break_frame, from_=0, to=120, increment=15, textvariable=setting_vars['default_break_time'], width=10)
+        break_spin.pack(side="right")
+        
+        # Overtime threshold
+        overtime_frame = ttk.Frame(schedule_frame)
+        overtime_frame.pack(fill="x", pady=5)
+        ttk.Label(overtime_frame, text="Overtime threshold (hours per week):").pack(side="left")
+        setting_vars['overtime_threshold'] = tk.IntVar(value=self.get_setting('overtime_threshold', 40))
+        overtime_spin = ttk.Spinbox(overtime_frame, from_=20, to=60, textvariable=setting_vars['overtime_threshold'], width=10)
+        overtime_spin.pack(side="right")
+        
+        # Time format
+        setting_vars['time_format_24h'] = tk.BooleanVar(value=self.get_setting('time_format_24h', False))
+        ttk.Checkbutton(schedule_frame, text="Use 24-hour time format", 
+                       variable=setting_vars['time_format_24h']).pack(anchor="w", pady=5)
+        
+        # Start week on Monday
+        setting_vars['start_week_on_monday'] = tk.BooleanVar(value=self.get_setting('start_week_on_monday', True))
+        ttk.Checkbutton(schedule_frame, text="Start calendar week on Monday", 
+                       variable=setting_vars['start_week_on_monday']).pack(anchor="w", pady=5)
+        
+        # === APPEARANCE SETTINGS ===
+        ttk.Label(appearance_frame, text="Appearance Settings", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 15))
+        
+        # Font scaling
+        font_scale_frame = ttk.Frame(appearance_frame)
+        font_scale_frame.pack(fill="x", pady=5)
+        ttk.Label(font_scale_frame, text="Font scaling:").pack(side="left")
+        setting_vars['font_scaling'] = tk.DoubleVar(value=self.get_setting('font_scaling', 1.0))
+        font_scale = ttk.Scale(font_scale_frame, from_=0.8, to=1.5, variable=setting_vars['font_scaling'], 
+                              orient="horizontal", length=200)
+        font_scale.pack(side="right", padx=(10, 0))
+        font_label = ttk.Label(font_scale_frame, text="1.0x")
+        font_label.pack(side="right", padx=(5, 10))
+        
+        def update_font_label(*args):
+            font_label.configure(text=f"{setting_vars['font_scaling'].get():.1f}x")
+        setting_vars['font_scaling'].trace('w', update_font_label)
+        
+        # Show employee icons
+        setting_vars['show_employee_icons'] = tk.BooleanVar(value=self.get_setting('show_employee_icons', True))
+        ttk.Checkbutton(appearance_frame, text="Show emoji icons for employees", 
+                       variable=setting_vars['show_employee_icons']).pack(anchor="w", pady=5)
+        
+        # Show splash screen
+        setting_vars['show_splash_screen'] = tk.BooleanVar(value=self.get_setting('show_splash_screen', True))
+        ttk.Checkbutton(appearance_frame, text="Show splash screen on startup", 
+                       variable=setting_vars['show_splash_screen']).pack(anchor="w", pady=5)
+        
+        # === PDF SETTINGS ===
+        ttk.Label(pdf_frame, text="PDF Export Settings", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 15))
+        
+        # Company name
+        company_frame = ttk.Frame(pdf_frame)
+        company_frame.pack(fill="x", pady=5)
+        ttk.Label(company_frame, text="Company name for PDF headers:").pack(anchor="w")
+        setting_vars['pdf_company_name'] = tk.StringVar(value=self.get_setting('pdf_company_name', 'Your Company'))
+        ttk.Entry(company_frame, textvariable=setting_vars['pdf_company_name'], width=40).pack(anchor="w", pady=(5, 0))
+        
+        # Include logo
+        setting_vars['pdf_include_logo'] = tk.BooleanVar(value=self.get_setting('pdf_include_logo', False))
+        ttk.Checkbutton(pdf_frame, text="Include company logo in PDFs", 
+                       variable=setting_vars['pdf_include_logo']).pack(anchor="w", pady=5)
+        
+        # Buttons frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        def save_settings():
+            """Save all settings and close dialog"""
+            try:
+                # Save all settings
+                self.set_setting('auto_save_interval', setting_vars['auto_save_interval'].get() * 1000)  # Convert to milliseconds
+                self.set_setting('confirm_deletions', setting_vars['confirm_deletions'].get())
+                self.set_setting('auto_backup', setting_vars['auto_backup'].get())
+                self.set_setting('remember_window_state', setting_vars['remember_window_state'].get())
+                self.set_setting('default_shift_length', setting_vars['default_shift_length'].get())
+                self.set_setting('default_break_time', setting_vars['default_break_time'].get())
+                self.set_setting('overtime_threshold', setting_vars['overtime_threshold'].get())
+                self.set_setting('time_format_24h', setting_vars['time_format_24h'].get())
+                self.set_setting('start_week_on_monday', setting_vars['start_week_on_monday'].get())
+                self.set_setting('font_scaling', setting_vars['font_scaling'].get())
+                self.set_setting('show_employee_icons', setting_vars['show_employee_icons'].get())
+                self.set_setting('show_splash_screen', setting_vars['show_splash_screen'].get())
+                self.set_setting('pdf_company_name', setting_vars['pdf_company_name'].get())
+                self.set_setting('pdf_include_logo', setting_vars['pdf_include_logo'].get())
+                
+                # Show success message
+                messagebox.showinfo("Settings Saved", "Settings have been saved successfully!")
+                dialog.destroy()
+                
+                # Apply immediate changes that affect UI
+                self.apply_settings_changes()
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save settings: {str(e)}")
+        
+        def cancel_settings():
+            """Close dialog without saving"""
+            dialog.destroy()
+        
+        # Buttons
+        ttk.Button(button_frame, text="Save", command=save_settings).pack(side="right", padx=(5, 0))
+        ttk.Button(button_frame, text="Cancel", command=cancel_settings).pack(side="right")
+        ttk.Button(button_frame, text="Reset to Defaults", command=lambda: self.reset_settings_in_dialog(setting_vars)).pack(side="left")
+        
+    def reset_settings_in_dialog(self, setting_vars):
+        """Reset settings to defaults within the dialog"""
+        if messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to their default values?"):
+            # Reset all variables to defaults
+            setting_vars['auto_save_interval'].set(10)  # 10 seconds (will be converted to 10000ms)
+            setting_vars['confirm_deletions'].set(True)
+            setting_vars['auto_backup'].set(True)
+            setting_vars['remember_window_state'].set(True)
+            setting_vars['default_shift_length'].set(8)
+            setting_vars['default_break_time'].set(30)
+            setting_vars['overtime_threshold'].set(40)
+            setting_vars['time_format_24h'].set(False)
+            setting_vars['start_week_on_monday'].set(True)
+            setting_vars['font_scaling'].set(1.0)
+            setting_vars['show_employee_icons'].set(True)
+            setting_vars['show_splash_screen'].set(True)
+            setting_vars['pdf_company_name'].set('Your Company')
+            setting_vars['pdf_include_logo'].set(False)
+    
+    def reset_settings_to_defaults(self):
+        """Reset all settings to default values"""
+        if messagebox.askyesno("Reset Settings", 
+                              "Are you sure you want to reset all settings to their default values?\n\n"
+                              "This action cannot be undone."):
+            self.init_settings()  # This will reload defaults
+            messagebox.showinfo("Settings Reset", "All settings have been reset to their default values.")
+            self.apply_settings_changes()
+    
+    def apply_settings_changes(self):
+        """Apply settings changes that affect the UI immediately"""
+        try:
+            # Apply font scaling if it changed
+            current_scaling = getattr(self, '_current_font_scaling', 1.0)
+            new_scaling = self.get_setting('font_scaling', 1.0)
+            if abs(current_scaling - new_scaling) > 0.1:  # Significant change
+                self._current_font_scaling = new_scaling
+                # Update UI fonts - this will trigger a full UI refresh
+                self.update_ui_sizes_optimized()
+            
+            # Other immediate changes can be added here
+            
+        except Exception as e:
+            print(f"Error applying settings changes: {e}")
+            
     def cleanup_old_executable(self):
         """Clean up the old executable file after successful update"""
         try:
@@ -588,29 +1547,35 @@ Brought to you by WILLSTER"""
         # Return cached value if dimensions haven't changed significantly
         cache_key = (width // 25, height // 25)  # Finer grouping for better responsiveness
         if cache_key in self._cached_font_sizes:
-            return self._cached_font_sizes[cache_key]
-            
-        if width <= 100 or height <= 100:  # Window not yet properly realized
-            return base_size
-            
-        # Calculate new size based on smaller dimension for better scaling
-        size = min(width, height)
-        # More responsive scaling formula
-        if size < 400:
-            scale_factor = 0.012  # Smaller scaling for small windows
-        elif size < 800:
-            scale_factor = 0.014
+            calculated_size = self._cached_font_sizes[cache_key]
         else:
-            scale_factor = 0.016  # Larger scaling for big windows
-            
-        new_size = max(int(size * scale_factor), self.min_font_size)
-        new_size = min(new_size, self.max_font_size)
+            if width <= 100 or height <= 100:  # Window not yet properly realized
+                calculated_size = base_size
+            else:
+                # Calculate new size based on smaller dimension for better scaling
+                size = min(width, height)
+                # More responsive scaling formula
+                if size < 400:
+                    scale_factor = 0.012  # Smaller scaling for small windows
+                elif size < 800:
+                    scale_factor = 0.014
+                else:
+                    scale_factor = 0.016  # Larger scaling for big windows
+                    
+                calculated_size = max(int(size * scale_factor), self.min_font_size)
+                calculated_size = min(calculated_size, self.max_font_size)
+                
+                # Cache the result and limit cache size
+                if len(self._cached_font_sizes) > 50:  # Prevent memory bloat
+                    self._cached_font_sizes.clear()
+                self._cached_font_sizes[cache_key] = calculated_size
         
-        # Cache the result and limit cache size
-        if len(self._cached_font_sizes) > 50:  # Prevent memory bloat
-            self._cached_font_sizes.clear()
-        self._cached_font_sizes[cache_key] = new_size
-        return new_size
+        # Apply font scaling setting
+        font_scaling = self.get_setting('font_scaling', 1.0) if hasattr(self, 'settings') else 1.0
+        scaled_size = int(calculated_size * font_scaling)
+        
+        # Ensure the scaled size stays within bounds
+        return max(min(scaled_size, self.max_font_size), self.min_font_size)
         
     def on_window_resize(self, event=None):
         """Handle window resize events with improved debouncing and dialog detection"""
@@ -639,23 +1604,64 @@ Brought to you by WILLSTER"""
             self.root.after_cancel(self._resize_timer)
             
         # Set timer with appropriate delay - shorter for better responsiveness
-        self._resize_timer = self.root.after(150, self.update_ui_sizes_optimized)
-    # Note: Do not rebuild tabs or UI here; it causes tab selection to reset
-    # and can lead to duplicated widgets. Resizing should only adjust sizes.
+        self._resize_timer = self.root.after(150, self._on_resize_complete)
+    
+    def _on_resize_complete(self):
+        """Complete resize operations including responsive sizing"""
+        self.update_ui_sizes_optimized()
+        self.update_hours_container_size()
+        self.update_hover_managers_on_resize()
+    
+    def update_hover_managers_on_resize(self):
+        """Update all hover managers after window resize"""
+        try:
+            # Update hover managers for all calendar cells
+            if hasattr(self, 'calendar_frame') and self.calendar_frame.winfo_exists():
+                for child in self.calendar_frame.winfo_children():
+                    if hasattr(child, '_hover_mgr'):
+                        # Trigger resize handling for each hover manager
+                        child._hover_mgr.on_cell_resize()
+        except:
+            pass  # Silently handle any errors
+    
+    def update_hours_container_size(self):
+        """Update the store hours layout for responsive sizing"""
+        try:
+            if not hasattr(self, 'content_frame') or not hasattr(self, 'hours_container'):
+                return
+                
+            if not self.content_frame.winfo_exists():
+                return
+            
+            # Force update of the grid layout
+            self.content_frame.update_idletasks()
+            
+            # The grid automatically handles responsive sizing with the 3-column layout
+            # Left and right spacers will scale, center content stays proportional
+                
+        except Exception as e:
+            pass  # Silently handle any sizing errors
+    #! Note: Do not rebuild tabs or UI here; it causes tab selection to reset
+    # !and can lead to duplicated widgets. Resizing should only adjust sizes.
 
     # -------------------------
     # Employee Tab
     # -------------------------
     def setup_employee_tab(self):
-        left = tk.Frame(self.employee_tab, padx=10, pady=10)
-        center = tk.Frame(self.employee_tab, padx=10, pady=10)
-        right = tk.Frame(self.employee_tab, padx=10, pady=10)
-        bottom = tk.Frame(self.employee_tab, pady=10)
+        # Set tab background
+        self.employee_tab.configure(bg=self.colors['background'])
+        
+        # Create modern frames with better spacing
+        left = self.create_modern_frame(self.employee_tab)
+        center = self.create_modern_frame(self.employee_tab)
+        right = self.create_modern_frame(self.employee_tab)
+        bottom = tk.Frame(self.employee_tab, bg=self.colors['background'])
 
-        left.grid(row=0, column=0, sticky="nsew", padx=5)
-        center.grid(row=0, column=1, sticky="nsew", padx=5)
-        right.grid(row=0, column=2, sticky="nsew", padx=5)
-        bottom.grid(row=1, column=0, columnspan=3, sticky="ew", pady=5)
+        # Improved grid layout with better spacing
+        left.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        center.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
+        bottom.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 10))
 
         # Configure column weights for proper resizing
         self.employee_tab.grid_columnconfigure(1, weight=3)  # Center gets more space
@@ -665,56 +1671,116 @@ Brought to you by WILLSTER"""
         # Configure row weight for vertical expansion
         self.employee_tab.grid_rowconfigure(0, weight=1)
 
-        # Left: employee list
-        base_font_size = self.calculate_font_size()
-        header_font_size = min(base_font_size + 2, self.max_font_size)
+        # Left: employee list with modern styling
+        left_content = tk.Frame(left, bg=self.colors['surface'], padx=20, pady=20)
+        left_content.pack(fill="both", expand=True)
         
-        emp_header = tk.Label(left, text="Employees", font=("Arial", header_font_size, "bold"))
-        emp_header.pack()
+        base_font_size = self.calculate_font_size()
+        header_font_size = min(base_font_size + 3, self.max_font_size)
+        
+        emp_header = tk.Label(left_content, text="Employees", 
+                             font=("Segoe UI", header_font_size, "bold"),
+                             bg=self.colors['surface'],
+                             fg=self.colors['text_primary'])
+        emp_header.pack(pady=(0, 15))
         self.employee_tab_widgets['headers'].append(emp_header)
         
-        # Keep selection even when focus moves to other widgets (e.g., comboboxes)
-        self.emp_listbox = tk.Listbox(left, width=30, height=18, exportselection=False, 
-                                    font=("Arial", base_font_size))
-        self.emp_listbox.pack(pady=5, fill="both", expand=True)
+        # Listbox styling
+        listbox_frame = tk.Frame(left_content, bg=self.colors['surface'])
+        listbox_frame.pack(fill="both", expand=True, pady=(0, 15))
+        
+        self.emp_listbox = tk.Listbox(listbox_frame, 
+                                    width=30, height=18, 
+                                    exportselection=False,
+                                    font=("Segoe UI", base_font_size),
+                                    bg=self.colors['surface'],
+                                    fg=self.colors['text_primary'],
+                                    selectbackground=self.colors['primary'],
+                                    selectforeground='white',
+                                    relief='flat',
+                                    borderwidth=1,
+                                    highlightbackground=self.colors['border'],
+                                    highlightthickness=1,
+                                    activestyle='none')
+        self.emp_listbox.pack(fill="both", expand=True)
         self.emp_listbox.bind("<<ListboxSelect>>", self.on_employee_select)
         self.employee_tab_widgets['listbox'] = self.emp_listbox
 
-        add_btn = tk.Button(left, text="Add Employee", command=self.add_employee, font=("Arial", base_font_size))
+        # Buttons with improved styling
+        btn_frame = tk.Frame(left_content, bg=self.colors['surface'])
+        btn_frame.pack(fill="x")
+        
+        add_btn = self.create_modern_button(btn_frame, "➕ Add Employee", self.add_employee, 'primary')
         add_btn.pack(fill="x", pady=2)
         self.employee_tab_widgets['buttons'].append(add_btn)
         
-        edit_btn = tk.Button(left, text="Edit Name", command=self.edit_employee_name, font=("Arial", base_font_size))
+        edit_btn = self.create_modern_button(btn_frame, "✏️ Edit Name", self.edit_employee_name, 'secondary')
         edit_btn.pack(fill="x", pady=2)
         self.employee_tab_widgets['buttons'].append(edit_btn)
         
-        remove_btn = tk.Button(left, text="Remove Employee", command=self.remove_employee, font=("Arial", base_font_size))
+        remove_btn = self.create_modern_button(btn_frame, "🗑️ Remove Employee", self.remove_employee, 'danger')
         remove_btn.pack(fill="x", pady=2)
         self.employee_tab_widgets['buttons'].append(remove_btn)
 
         # Populate listbox
         self.refresh_employee_list()
 
-        # Center: availability editor
-        base_font_size = self.calculate_font_size()
-        header_font_size = min(base_font_size + 2, self.max_font_size)
+        # Center: availability editor with modern styling
+        center_content = tk.Frame(center, bg=self.colors['surface'], padx=20, pady=20)
+        center_content.pack(fill="both", expand=True)
         
-        avail_header = tk.Label(center, text="Availability (check if available; choose start/end)", 
-                               font=("Arial", header_font_size, "bold"))
-        avail_header.grid(row=0, column=0, columnspan=4)
+        avail_header = tk.Label(center_content, 
+                               text="📅 Availability Schedule", 
+                               font=("Segoe UI", header_font_size, "bold"),
+                               bg=self.colors['surface'],
+                               fg=self.colors['text_primary'])
+        avail_header.grid(row=0, column=0, columnspan=4, pady=(0, 20), sticky="w")
         self.employee_tab_widgets['headers'].append(avail_header)
         
+        sub_header = tk.Label(center_content,
+                             text="Check days available and set working hours",
+                             font=("Segoe UI", base_font_size - 1),
+                             bg=self.colors['surface'],
+                             fg=self.colors['text_secondary'])
+        sub_header.grid(row=1, column=0, columnspan=4, pady=(0, 15), sticky="w")
+        self.employee_tab_widgets['labels'].append(sub_header)
+        
         self.days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+        # day_emojis = ["🌙", "💼", "💼", "💼", "💼", "🌅", "☀️"]  # Sunday, Mon-Fri, Saturday
+        
         # For each day we'll store widgets: { day: { 'var': IntVar, 'start_var': StringVar, 'end_var': StringVar, 'start_cb': Combobox, 'end_cb': Combobox } }
         self.avail_widgets = {}
+        
         for i, day in enumerate(self.days):
-            day_label = tk.Label(center, text=day.capitalize(), font=("Arial", base_font_size))
-            day_label.grid(row=i+1, column=0, sticky="e", padx=5, pady=2)
+            row = i + 2  # Start after headers
+            
+            # Day row container
+            day_frame = tk.Frame(center_content, bg=self.colors['surface'])
+            day_frame.grid(row=row, column=0, columnspan=4, sticky="ew", pady=3)
+            center_content.grid_columnconfigure(0, weight=1)
+            
+            # Day label modern styling
+            day_label = tk.Label(day_frame, 
+                               text=f"{day.capitalize()}", 
+                               font=("Segoe UI", base_font_size, "normal"),
+                               bg=self.colors['surface'],
+                               fg=self.colors['text_primary'],
+                               width=12,
+                               anchor="w")
+            day_label.grid(row=0, column=0, sticky="w", padx=(10, 20))
             self.employee_tab_widgets['labels'].append(day_label)
-            # availability checkbox
+
+            # Availability checkbox
             var = tk.IntVar(value=0)
-            cb = tk.Checkbutton(center, variable=var)
-            cb.grid(row=i+1, column=1, padx=4)
+            cb = tk.Checkbutton(day_frame, 
+                              variable=var,
+                              bg=self.colors['surface'],
+                              fg=self.colors['text_primary'],
+                              activebackground=self.colors['surface'],
+                              selectcolor=self.colors['surface'],
+                              font=("Segoe UI", base_font_size + 1),
+                              text="Available")
+            cb.grid(row=0, column=1, sticky="w", padx=(0, 15))
 
             # time options based on store hours for that day
             store_range = self.data.get("store_hours", {}).get(day)
@@ -723,13 +1789,31 @@ Brought to you by WILLSTER"""
             else:
                 times = []
 
+            # Start time combobox
+            start_label = tk.Label(day_frame,
+                                 text="Start:",
+                                 font=("Segoe UI", base_font_size + 1),
+                                 bg=self.colors['surface'],
+                                 fg=self.colors['text_primary'])
+            start_label.grid(row=0, column=2, sticky="w", padx=(0, 8))
+            
             start_var = tk.StringVar()
-            start_cb = ttk.Combobox(center, textvariable=start_var, values=times, state="readonly", width=12)
-            start_cb.grid(row=i+1, column=2, padx=4)
+            start_cb = ttk.Combobox(day_frame, textvariable=start_var, values=times, 
+                                  state="readonly", width=10, font=("Segoe UI", base_font_size))
+            start_cb.grid(row=0, column=3, padx=(0, 15))
 
+            # End time combobox
+            end_label = tk.Label(day_frame,
+                               text="End:",
+                               font=("Segoe UI", base_font_size + 1),
+                               bg=self.colors['surface'],
+                               fg=self.colors['text_primary'])
+            end_label.grid(row=0, column=4, sticky="w", padx=(0, 8))
+            
             end_var = tk.StringVar()
-            end_cb = ttk.Combobox(center, textvariable=end_var, values=times, state="readonly", width=12)
-            end_cb.grid(row=i+1, column=3, padx=4)
+            end_cb = ttk.Combobox(day_frame, textvariable=end_var, values=times, 
+                                state="readonly", width=10, font=("Segoe UI", base_font_size))
+            end_cb.grid(row=0, column=5, padx=(0, 10))
 
             # Initial state setup
             if not store_range:
@@ -737,13 +1821,14 @@ Brought to you by WILLSTER"""
                 cb.config(state="disabled")
                 start_cb.configure(state="disabled")
                 end_cb.configure(state="disabled")
+                day_label.configure(fg=self.colors['text_muted'])
             else:
                 # Store is open but availability not checked
                 start_cb.configure(state="disabled")
                 end_cb.configure(state="disabled")
 
             # when checkbox toggled, enable/disable comboboxes
-            def make_toggle(s_cb=start_cb, e_cb=end_cb, v=var):
+            def make_toggle(s_cb=start_cb, e_cb=end_cb, v=var, labels=[start_label, end_label]):
                 def toggle(*args):
                     if v.get():
                         # Enable comboboxes if they have values and set sensible defaults
@@ -773,12 +1858,20 @@ Brought to you by WILLSTER"""
                                 e_cb.configure(state='disabled')  # Gray background
                         else:
                             e_cb.configure(state='disabled')  # Gray background
+                            
+                        # Update label colors when enabled
+                        for label in labels:
+                            label.configure(fg=self.colors['text_primary'])
                     else:
                         # Clear and disable both comboboxes
                         s_cb.set("")
                         e_cb.set("")
                         s_cb.configure(state='disabled')  # Gray background
                         e_cb.configure(state='disabled')  # Gray background
+                        
+                        # Update label colors when disabled
+                        for label in labels:
+                            label.configure(fg=self.colors['text_muted'])
                 return toggle
 
             # Validation function to check start time is not after end time
@@ -830,32 +1923,78 @@ Brought to you by WILLSTER"""
                 'end_var': end_var,
                 'start_cb': start_cb,
                 'end_cb': end_cb,
+                'start_label': start_label,
+                'end_label': end_label,
             }
 
-        # Right: requested days off
-        days_off_header = tk.Label(right, text="Requested Days Off (YYYY-MM-DD)", font=("Arial", header_font_size, "bold"))
-        days_off_header.pack()
+        # Right: requested days off with modern styling
+        right_content = tk.Frame(right, bg=self.colors['surface'], padx=20, pady=20)
+        right_content.pack(fill="both", expand=True)
+        
+        days_off_header = tk.Label(right_content, 
+                                  text="🗓️ Requested Time Off", 
+                                  font=("Segoe UI", header_font_size, "bold"),
+                                  bg=self.colors['surface'],
+                                  fg=self.colors['text_primary'])
+        days_off_header.pack(pady=(0, 15))
         self.employee_tab_widgets['headers'].append(days_off_header)
+
+        # Listbox for days off
+        listbox_frame = tk.Frame(right_content, bg=self.colors['surface'])
+        listbox_frame.pack(fill="both", expand=True, pady=(0, 15))
         
-        self.days_off_list = tk.Listbox(right, width=30, height=12, font=("Arial", base_font_size))
-        self.days_off_list.pack(pady=5)
+        self.days_off_list = tk.Listbox(listbox_frame, 
+                                       width=30, height=12, 
+                                       font=("Segoe UI", base_font_size),
+                                       bg=self.colors['surface'],
+                                       fg=self.colors['text_primary'],
+                                       selectbackground=self.colors['primary'],
+                                       selectforeground='white',
+                                       relief='flat',
+                                       borderwidth=1,
+                                       highlightbackground=self.colors['border'],
+                                       highlightthickness=1,
+                                       activestyle='none')
+        self.days_off_list.pack(fill="both", expand=True)
+
+        # Buttons for days off management
+        btn_frame = tk.Frame(right_content, bg=self.colors['surface'])
+        btn_frame.pack(fill="x")
         
-        add_day_btn = tk.Button(right, text="Add Day Off", command=self.add_requested_day, font=("Arial", base_font_size))
+        add_day_btn = self.create_modern_button(btn_frame, "➕ Add Time Off", self.add_requested_day, 'success')
         add_day_btn.pack(fill="x", pady=2)
         self.employee_tab_widgets['buttons'].append(add_day_btn)
         
-        remove_day_btn = tk.Button(right, text="Remove Selected Off", command=self.remove_requested_day, font=("Arial", base_font_size))
+        remove_day_btn = self.create_modern_button(btn_frame, "🗑️ Remove Selected", self.remove_requested_day, 'danger')
         remove_day_btn.pack(fill="x", pady=2)
         self.employee_tab_widgets['buttons'].append(remove_day_btn)
 
         # Bottom: auto-save status indicator
-        save_row = tk.Frame(bottom)
-        save_row.pack(pady=8)
-        self.save_emp_lbl = tk.Label(save_row, text="Changes save automatically", font=("Arial", base_font_size, "bold"))
+        bottom.configure(bg=self.colors['background'])
+        save_row = tk.Frame(bottom, bg=self.colors['background'])
+        save_row.pack(pady=15)
+        
+        # Status indicator with styling
+        status_frame = tk.Frame(save_row, bg=self.colors['surface_alt'], 
+                               relief='flat', padx=15, pady=8)
+        status_frame.pack()
+        
+        save_icon = tk.Label(status_frame, text="💾", 
+                           font=("Segoe UI", base_font_size),
+                           bg=self.colors['surface_alt'])
+        save_icon.pack(side="left", padx=(0, 8))
+        
+        self.save_emp_lbl = tk.Label(status_frame, text="Changes save automatically", 
+                                   font=("Segoe UI", base_font_size, "normal"),
+                                   bg=self.colors['surface_alt'],
+                                   fg=self.colors['text_secondary'])
         self.save_emp_lbl.pack(side="left")
         self.employee_tab_widgets['labels'].append(self.save_emp_lbl)
         
-        self.save_indicator = tk.Label(save_row, text="", fg="red", font=("Arial", base_font_size, "bold"))
+        self.save_indicator = tk.Label(status_frame, text="", 
+                                     fg=self.colors['success'], 
+                                     font=("Segoe UI", base_font_size, "bold"),
+                                     bg=self.colors['surface_alt'])
         self.save_indicator.pack(side="left", padx=(8,0))
         self.employee_tab_widgets['labels'].append(self.save_indicator)
         # internal flag
@@ -909,6 +2048,120 @@ Brought to you by WILLSTER"""
             if e.get("name") == display_name:
                 return e
         return None
+
+    def validate_shift_scheduling(self, emp_name, day_str, start_time, end_time, 
+                                 exclude_shift_index=None, show_dialog=True):
+        """
+        Comprehensive validation for shift scheduling.
+        
+        Args:
+            emp_name: Employee name
+            day_str: Date string in YYYY-MM-DD format
+            start_time: Start time in HH:MM format
+            end_time: End time in HH:MM format
+            exclude_shift_index: Index of shift to exclude from overlap check (for editing)
+            show_dialog: Whether to show conflict dialog
+            
+        Returns:
+            tuple: (is_valid, conflicts_list)
+        """
+        from datetime import datetime
+        
+        conflicts = []
+        
+        # Basic time validation
+        try:
+            start_dt = datetime.strptime(start_time, TIME_FMT)
+            end_dt = datetime.strptime(end_time, TIME_FMT)
+            if end_dt <= start_dt:
+                conflicts.append("End time must be after start time")
+                return False, conflicts
+        except Exception:
+            conflicts.append("Invalid time format")
+            return False, conflicts
+        
+        # Find employee data
+        emp_data = self.find_employee_by_display(emp_name)
+        if not emp_data:
+            conflicts.append("Employee not found")
+            return False, conflicts
+        
+        # Get day of week for availability check
+        day_dt = datetime.strptime(day_str, DATE_FMT)
+        day_name = day_dt.strftime("%A").lower()
+        
+        # Check requested days off (support both structured and legacy formats)
+        rd_list = emp_data.get("requested_days_off", [])
+        for req in rd_list:
+            if isinstance(req, dict):
+                rtype = req.get("type")
+                rdate = req.get("date")
+                if rdate != day_str:
+                    continue
+                if rtype == "full":
+                    conflicts.append(f"{emp_name} requested this entire day off")
+                elif rtype == "partial":
+                    times = req.get("times", "")
+                    parts = [p.strip() for p in times.split("-")]
+                    if len(parts) == 2:
+                        try:
+                            r_start = datetime.strptime(parts[0], TIME_FMT)
+                            r_end = datetime.strptime(parts[1], TIME_FMT)
+                            # Check if shift overlaps with requested time off
+                            if not (end_dt <= r_start or start_dt >= r_end):
+                                conflicts.append(f"{emp_name} requested time off from {parts[0]} to {parts[1]}")
+                        except Exception:
+                            # if malformed, treat as full day off
+                            conflicts.append(f"{emp_name} has a time off request for this day")
+            else:
+                # legacy string format - treat as full day
+                if req == day_str:
+                    conflicts.append(f"{emp_name} requested this day off")
+        
+        # Check day availability
+        availability = emp_data.get("availability", {}).get(day_name, ["off"])
+        if availability == ["off"]:
+            conflicts.append(f"{emp_name} is not available on {day_name.capitalize()}s")
+        else:
+            # availability should be [start, end]
+            try:
+                avail_start = datetime.strptime(availability[0], TIME_FMT)
+                avail_end = datetime.strptime(availability[1], TIME_FMT)
+                if start_dt < avail_start:
+                    conflicts.append(f"Shift starts at {start_time} but {emp_name} is only available from {availability[0]}")
+                if end_dt > avail_end:
+                    conflicts.append(f"Shift ends at {end_time} but {emp_name} is only available until {availability[1]}")
+            except Exception:
+                conflicts.append(f"{emp_name}'s availability data is invalid for {day_name}")
+        
+        # Check for overlap with existing shifts
+        month_key = f"{day_dt.year}-{day_dt.month:02d}"
+        shifts = self.data.get("schedule", {}).get(month_key, {}).get(day_str, [])
+        for i, shift in enumerate(shifts):
+            # Skip the shift we're editing
+            if exclude_shift_index is not None and i == exclude_shift_index:
+                continue
+                
+            if shift["employee"] == emp_name:
+                try:
+                    shift_start = datetime.strptime(shift["start"], TIME_FMT)
+                    shift_end = datetime.strptime(shift["end"], TIME_FMT)
+                    # Check if shifts overlap
+                    if not (end_dt <= shift_start or start_dt >= shift_end):
+                        conflicts.append(f"Overlaps with existing shift ({shift['start']} - {shift['end']})")
+                except Exception:
+                    conflicts.append(f"Error checking overlap with existing shift")
+        
+        # If there are conflicts and we should show dialog
+        if conflicts and show_dialog:
+            message = "⚠️ The following scheduling conflicts were found:\n\n"
+            message += "\n".join(f"• {conflict}" for conflict in conflicts)
+            message += "\n\n❓ Do you want to schedule this shift anyway?"
+            
+            import tkinter.messagebox as messagebox
+            return messagebox.askyesno("Scheduling Conflicts", message), conflicts
+        
+        return len(conflicts) == 0, conflicts
 
     def add_employee(self):
         # Create dialog window
@@ -1242,8 +2495,24 @@ Brought to you by WILLSTER"""
         time_frame = ttk.Frame(partial_day_frame)
         time_frame.pack(fill="x", pady=5)
         
-        # Generate time options
-        times = generate_times("8:30 AM", "7:00 PM")
+        # Generate initial time options (will be updated when date changes)
+        def update_time_options():
+            selected_date = partial_day_cal.get_date().strftime(DATE_FMT)
+            store_hours = get_store_hours_for_date(selected_date, self.data.get("store_hours", {}))
+            if store_hours:
+                times = generate_times(store_hours[0], store_hours[1])
+            else:
+                times = generate_times("8:30 AM", "7:00 PM")  # Default fallback
+            start_cb['values'] = times
+            end_cb['values'] = times
+        
+        # Initial time generation using current date
+        current_date = partial_day_cal.get_date().strftime(DATE_FMT)
+        store_hours = get_store_hours_for_date(current_date, self.data.get("store_hours", {}))
+        if store_hours:
+            times = generate_times(store_hours[0], store_hours[1])
+        else:
+            times = generate_times("8:30 AM", "7:00 PM")
         
         start_frame = ttk.Frame(time_frame)
         start_frame.pack(anchor="w", pady=2)
@@ -1258,6 +2527,9 @@ Brought to you by WILLSTER"""
         end_var = tk.StringVar()
         end_cb = ttk.Combobox(end_frame, textvariable=end_var, values=times, state="readonly", width=10)
         end_cb.pack(side="left", padx=(5, 0))
+        
+        # Bind date change event to update time options
+        partial_day_cal.bind("<<DateEntrySelected>>", lambda e: update_time_options())
 
         # Multiple days widgets
         date_range_frame = ttk.Frame(multi_day_frame)
@@ -1461,37 +2733,62 @@ Brought to you by WILLSTER"""
     # Schedule Tab
     # -------------------------
     def setup_schedule_tab(self):
-        # Top navigation and controls
-        top = tk.Frame(self.schedule_tab, pady=8)
+        # Set tab background
+        self.schedule_tab.configure(bg=self.colors['background'])
+        
+        # Top navigation and controls with modern styling
+        top = tk.Frame(self.schedule_tab, bg=self.colors['background'], pady=15)
         top.grid(row=0, column=0, sticky="ew")
         self.schedule_tab.grid_columnconfigure(0, weight=1)
 
-        # Navigation frame with month controls
-        nav = tk.Frame(top)
-        nav.grid(row=0, column=0, sticky="ew")
+        # Navigation frame with modern styling
+        nav_container = tk.Frame(top, bg=self.colors['surface'], 
+                               relief='flat', padx=20, pady=15)
+        nav_container.grid(row=0, column=0, sticky="ew", padx=10)
         top.grid_columnconfigure(0, weight=1)
-
-        # Navigation buttons and label in a grid
-        self.prev_btn = tk.Button(nav, text="◀ Previous", command=self.prev_month)
-        self.prev_btn.grid(row=0, column=0, padx=8)
-        self.month_label = tk.Label(nav, text="", font=("Arial", 14, "bold"))
-        self.month_label.grid(row=0, column=1, padx=8)
-        self.next_btn = tk.Button(nav, text="Next ▶", command=self.next_month)
-        self.next_btn.grid(row=0, column=2, padx=8)
         
-        # Configure navigation frame columns
+        nav = tk.Frame(nav_container, bg=self.colors['surface'])
+        nav.pack(fill="x")
+
+        # Navigation buttons
+        base_font_size = self.calculate_font_size()
+        
+        self.prev_btn = self.create_modern_button(nav, "◀ Previous Month", self.prev_month, 'secondary')
+        self.prev_btn.grid(row=0, column=0, padx=(0, 15))
+        
+        self.month_label = tk.Label(nav, text="", 
+                                   font=("Segoe UI", base_font_size + 4, "bold"),
+                                   bg=self.colors['surface'],
+                                   fg=self.colors['text_primary'])
+        self.month_label.grid(row=0, column=1, padx=15)
+        
+        self.next_btn = self.create_modern_button(nav, "Next Month ▶", self.next_month, 'secondary')
+        self.next_btn.grid(row=0, column=2, padx=(15, 0))
+        
+        # Configure navigation frame columns for center alignment
         nav.grid_columnconfigure(1, weight=1)
 
-        # PDF button on the right
-        pdf_btn = tk.Button(top, text="Generate PDF for Month", command=self.generate_month_pdf)
-        pdf_btn.grid(row=0, column=1, padx=10)
+        # PDF button
+        pdf_btn = self.create_modern_button(nav_container, "📄 Generate PDF", 
+                                          self.generate_month_pdf, 'primary')
+        pdf_btn.pack(side="right", padx=(10, 0))
 
-        # Calendar frame
-        self.calendar_frame = tk.Frame(self.schedule_tab, padx=10, pady=10)
-        self.calendar_frame.grid(row=1, column=0, sticky="nsew")
+        # Calendar frame with shadow effect
+        calendar_container = tk.Frame(self.schedule_tab, bg=self.colors['background'])
+        calendar_container.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         
-        # Make calendar frame expand to fill space
+        self.calendar_frame = tk.Frame(calendar_container, 
+                                     bg=self.colors['surface'],
+                                     relief='flat',
+                                     bd=1,
+                                     highlightbackground=self.colors['border'],
+                                     highlightthickness=1,
+                                     padx=10, pady=10)
+        self.calendar_frame.pack(fill="both", expand=True)
+        
+        # Make calendar frame expand to fill space but constrain its growth
         self.schedule_tab.grid_rowconfigure(1, weight=1)
+        self.schedule_tab.grid_columnconfigure(0, weight=1)
 
         # draw initial calendar
         self.draw_calendar()
@@ -1571,7 +2868,7 @@ Brought to you by WILLSTER"""
         try:
             if hasattr(self, 'day_labels'):
                 base_size = normal_font[1] if isinstance(normal_font, tuple) else 12
-                day_font = ("Arial", base_size, "bold")
+                day_font = ("Arial", max(base_size - 3, 6), "bold")  # Much smaller day numbers
                 
                 for day_label in self.day_labels:
                     if day_label and hasattr(day_label, 'configure') and day_label.winfo_exists():
@@ -1599,14 +2896,21 @@ Brought to you by WILLSTER"""
                 
                 # Determine appropriate font based on label content and current font
                 if text and text.strip().isdigit():  # Day numbers (pure digits)
-                    # Day numbers should be bold
+                    # Day numbers should be bold and much smaller
                     base_size = normal_font[1] if isinstance(normal_font, tuple) else normal_font
-                    day_font = ("Arial", base_size, "bold")
+                    day_font = ("Arial", max(base_size - 3, 6), "bold")  # Much smaller day numbers
                     widget.configure(font=day_font)
                 elif text in ["✏️", "📋", "🗑️"]:  # Action icons
                     widget.configure(font=icon_font)
                 elif text and "(" in text and "-" in text:  # Shift labels (contain time)
-                    widget.configure(font=shift_font)
+                    # Check if this label has custom dynamic font sizing
+                    if hasattr(widget, '_custom_font_size') and widget._custom_font_size:
+                        # This label uses custom dynamic sizing - don't override it
+                        if hasattr(widget, '_dynamic_font'):
+                            widget.configure(font=widget._dynamic_font)
+                    else:
+                        # Use standard shift font for labels without custom sizing
+                        widget.configure(font=shift_font)
                 elif text and len(text.strip()) <= 2 and text.strip():  # Very short labels (might be day numbers)
                     # Check if it's in a header-like position (likely a day number)
                     parent = widget.master
@@ -1617,7 +2921,7 @@ Brought to you by WILLSTER"""
                             ((hasattr(widget, 'pack_info') and widget.pack_info().get('side') == 'left') or
                              (hasattr(widget, 'grid_info') and widget.grid_info().get('row') == 0))):
                             base_size = normal_font[1] if isinstance(normal_font, tuple) else normal_font
-                            day_font = ("Arial", base_size, "bold")
+                            day_font = ("Arial", max(base_size - 3, 6), "bold")  # Much smaller day numbers
                             widget.configure(font=day_font)
                         else:
                             widget.configure(font=normal_font)
@@ -1625,7 +2929,7 @@ Brought to you by WILLSTER"""
                         # Check if current font is bold (likely a day number)
                         if isinstance(current_font, tuple) and len(current_font) > 2 and "bold" in str(current_font):
                             base_size = normal_font[1] if isinstance(normal_font, tuple) else normal_font
-                            day_font = ("Arial", base_size, "bold")
+                            day_font = ("Arial", max(base_size - 3, 6), "bold")  # Much smaller day numbers
                             widget.configure(font=day_font)
                         else:
                             widget.configure(font=normal_font)
@@ -1646,8 +2950,8 @@ Brought to you by WILLSTER"""
             # Update employee tab elements
             self.update_employee_tab_fonts(normal_font, header_font)
             
-            # Update admin tab elements
-            self.update_admin_tab_fonts(normal_font, header_font)
+            # Update store hours tab elements
+            self.update_store_hours_tab_fonts(normal_font, header_font)
                 
             # Update other buttons throughout the app
             for attr_name in dir(self):
@@ -1694,27 +2998,147 @@ Brought to you by WILLSTER"""
             if hasattr(self, 'days_off_list') and self.days_off_list.winfo_exists():
                 self.days_off_list.configure(font=normal_font)
                 
+            # Update availability widgets (checkboxes and labels)
+            if hasattr(self, 'avail_widgets'):
+                base_font_size = self.calculate_font_size()
+                checkbox_font = ("Segoe UI", base_font_size + 1)
+                label_font = ("Segoe UI", base_font_size + 1)
+                
+                for day, widgets in self.avail_widgets.items():
+                    try:
+                        # Update checkbox
+                        if widgets.get('checkbutton') and widgets['checkbutton'].winfo_exists():
+                            widgets['checkbutton'].configure(font=checkbox_font)
+                        
+                        # Update start and end labels
+                        if widgets.get('start_label') and widgets['start_label'].winfo_exists():
+                            widgets['start_label'].configure(font=label_font)
+                        if widgets.get('end_label') and widgets['end_label'].winfo_exists():
+                            widgets['end_label'].configure(font=label_font)
+                            
+                        # Update comboboxes
+                        if widgets.get('start_cb') and widgets['start_cb'].winfo_exists():
+                            widgets['start_cb'].configure(font=normal_font)
+                        if widgets.get('end_cb') and widgets['end_cb'].winfo_exists():
+                            widgets['end_cb'].configure(font=normal_font)
+                    except Exception:
+                        continue
+                
         except Exception as e:
             pass
             
-    def update_admin_tab_fonts(self, normal_font, header_font):
-        """Update all fonts in the admin tab"""
+    def update_store_hours_tab_fonts(self, normal_font, header_font):
+        """Update all fonts in the store hours tab with responsive sizing"""
         try:
-            if not hasattr(self, 'admin_tab_widgets'):
+            if not hasattr(self, 'store_hours_tab_widgets'):
                 return
                 
-            # Update headers
-            for widget in self.admin_tab_widgets['headers']:
-                if widget and hasattr(widget, 'configure') and widget.winfo_exists():
-                    widget.configure(font=header_font)
+            # Calculate responsive font sizes based on window size
+            base_font_size = self.calculate_font_size()
             
-            # Update labels
-            for widget in self.admin_tab_widgets['labels']:
+            # Create responsive font sizes (similar to availability section)
+            normal_responsive = ("Segoe UI", base_font_size + 1)  # Slightly larger for readability
+            header_responsive = ("Segoe UI", min(base_font_size + 3, self.max_font_size), "bold")
+            small_responsive = ("Segoe UI", max(base_font_size - 1, self.min_font_size))
+            
+            # Update column widths based on font size before updating fonts
+            self._update_store_hours_column_widths(base_font_size)
+            
+            # Update headers (titles, day headers, etc.)
+            for widget in self.store_hours_tab_widgets['headers']:
                 if widget and hasattr(widget, 'configure') and widget.winfo_exists():
+                    widget.configure(font=header_responsive)
+            
+            # Update labels (instructions, day labels, etc.)
+            for widget in self.store_hours_tab_widgets['labels']:
+                if widget and hasattr(widget, 'configure') and widget.winfo_exists():
+                    widget.configure(font=normal_responsive)
+            
+            # Update store hours widgets with responsive fonts
+            if hasattr(self, 'store_hours_widgets'):
+                for day, widgets in self.store_hours_widgets.items():
+                    # Update comboboxes
+                    if 'start_cb' in widgets and widgets['start_cb'].winfo_exists():
+                        widgets['start_cb'].configure(font=normal_responsive)
+                    if 'end_cb' in widgets and widgets['end_cb'].winfo_exists():
+                        widgets['end_cb'].configure(font=normal_responsive)
+            
+            # Update any checkboxes and additional labels in the hours tile
+            if hasattr(self, 'hours_container'):
+                for child in self.hours_container.winfo_children():
+                    self._update_widget_fonts_recursive(child, normal_responsive, small_responsive)
+                    
+        except Exception as e:
+            pass  # Silently handle any font update errors
+    
+    def _update_widget_fonts_recursive(self, widget, normal_font, small_font):
+        """Recursively update fonts for widgets in the store hours tab"""
+        try:
+            widget_class = widget.winfo_class()
+            
+            if widget_class == 'Checkbutton':
+                widget.configure(font=normal_font)
+            elif widget_class == 'Label' and widget not in self.store_hours_tab_widgets.get('headers', []):
+                # Use small font for auto-save indicator and similar small text
+                current_text = widget.cget('text')
+                if 'save' in current_text.lower() or 'changes' in current_text.lower():
+                    widget.configure(font=small_font)
+                else:
                     widget.configure(font=normal_font)
+            
+            # Recursively update children
+            for child in widget.winfo_children():
+                self._update_widget_fonts_recursive(child, normal_font, small_font)
+                
+        except Exception:
+            pass  # Skip widgets that can't be updated
                     
         except Exception as e:
             pass
+    
+    def _update_store_hours_column_widths(self, base_font_size):
+        """Update column minimum widths based on current font size"""
+        try:
+            if not hasattr(self, 'hours_frame') or not self.hours_frame.winfo_exists():
+                return
+            
+            # Calculate dynamic column widths based on font size
+            # Base widths are scaled by font size factor
+            font_factor = base_font_size / 12.0  # 12 is our base font size reference
+            
+            day_width = int(120 * font_factor)      # Day column - scales with font
+            open_width = int(80 * font_factor)      # Open checkbox - scales moderately  
+            start_label_width = int(60 * font_factor)   # "Start:" label
+            combobox_width = int(120 * font_factor)     # Combobox columns
+            end_label_width = int(60 * font_factor)     # "End:" label
+            
+            # Update the main hours frame column configuration
+            self.hours_frame.grid_columnconfigure(0, weight=1, minsize=day_width)
+            self.hours_frame.grid_columnconfigure(1, weight=0, minsize=open_width)
+            self.hours_frame.grid_columnconfigure(2, weight=0, minsize=start_label_width)
+            self.hours_frame.grid_columnconfigure(3, weight=0, minsize=combobox_width)
+            self.hours_frame.grid_columnconfigure(4, weight=0, minsize=end_label_width)
+            self.hours_frame.grid_columnconfigure(5, weight=0, minsize=combobox_width)
+            
+            # Update all day row frames to match
+            if hasattr(self, 'store_hours_widgets'):
+                for day in self.store_hours_widgets.keys():
+                    # Find the day row frame
+                    for child in self.hours_frame.winfo_children():
+                        if hasattr(child, 'winfo_class') and child.winfo_class() == 'Frame':
+                            # Update day row frame columns
+                            try:
+                                child.grid_columnconfigure(0, weight=1, minsize=day_width)
+                                child.grid_columnconfigure(1, weight=0, minsize=open_width)
+                                child.grid_columnconfigure(2, weight=0, minsize=start_label_width)
+                                child.grid_columnconfigure(3, weight=0, minsize=combobox_width)
+                                child.grid_columnconfigure(4, weight=0, minsize=end_label_width)
+                                child.grid_columnconfigure(5, weight=0, minsize=combobox_width)
+                            except:
+                                pass
+                                
+        except Exception:
+            pass  # Silently handle column width update errors
             
     def update_ui_sizes(self):
         """Legacy method - redirects to optimized version"""
@@ -1722,66 +3146,147 @@ Brought to you by WILLSTER"""
         if len(self._cached_font_sizes) > 100:
             self._cached_font_sizes.clear()
 
-    def setup_admin_tab(self):
-        """Setup the Admin tab for managing store hours"""
-        # Calculate font sizes for admin tab
+    def setup_store_hours_tab(self):
+        """Setup the Store Hours tab for managing store hours"""
+        # Set tab background
+        self.store_hours_tab.configure(bg=self.colors['background'])
+        
+        # Calculate font sizes for store hours tab
         base_font_size = self.calculate_font_size()
         header_font_size = min(base_font_size + 4, self.max_font_size)  # Larger header
         
-        # Main container with padding
-        main_frame = tk.Frame(self.admin_tab, padx=20, pady=20)
-        main_frame.pack(fill="both", expand=True)
+        # Main container with modern styling
+        main_container = tk.Frame(self.store_hours_tab, bg=self.colors['background'], padx=20, pady=20)
+        main_container.pack(fill="both", expand=True)
         
-        # Title
-        title = tk.Label(main_frame, text="Store Hours Configuration", 
-                        font=("Arial", header_font_size, "bold"))
-        title.pack(pady=(0, 20))
-        self.admin_tab_widgets['headers'].append(title)
+        # Card-style container
+        main_frame = self.create_modern_frame(main_container)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Instructions
-        instructions = tk.Label(main_frame, 
+        content_frame = tk.Frame(main_frame, bg=self.colors['surface'], padx=30, pady=30)
+        content_frame.pack(fill="both", expand=True)
+        
+        # Configure grid for centered layout (1 row x 3 columns)
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)  # Left spacer
+        content_frame.grid_columnconfigure(1, weight=2)  # Center content (wider)
+        content_frame.grid_columnconfigure(2, weight=1)  # Right spacer
+        
+        # Left spacer
+        left_spacer = tk.Frame(content_frame, bg=self.colors['surface'])
+        left_spacer.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        
+        # Center tile: Store Hours Configuration
+        hours_tile = tk.Frame(content_frame, bg=self.colors['surface_alt'], 
+                             relief='solid', bd=1, padx=20, pady=20)
+        hours_tile.grid(row=0, column=1, sticky="nsew", padx=10, pady=5)
+        
+        # Right spacer
+        right_spacer = tk.Frame(content_frame, bg=self.colors['surface'])
+        right_spacer.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+        # Store references for resizing
+        self.hours_container = hours_tile
+        self.content_frame = content_frame
+        
+        # Title with icon (inside the hours tile)
+        title_frame = tk.Frame(hours_tile, bg=self.colors['surface_alt'])
+        title_frame.pack(fill="x", pady=(0, 20))
+        
+        title_icon = tk.Label(title_frame, text="🏪", 
+                            font=("Segoe UI", header_font_size + 2),
+                            bg=self.colors['surface_alt'])
+        title_icon.pack(side="left", padx=(0, 10))
+        
+        title = tk.Label(title_frame, text="Store Hours Configuration", 
+                        font=("Segoe UI", header_font_size, "bold"),
+                        bg=self.colors['surface_alt'],
+                        fg=self.colors['text_primary'])
+        title.pack(side="left")
+        self.store_hours_tab_widgets['headers'].append(title)
+
+        # Instructions (inside the hours tile)
+        instructions = tk.Label(hours_tile, 
                                text="Configure the days and hours your store is open. "
                                "Unchecked days are considered closed.",
-                               font=("Arial", base_font_size), fg="gray")
+                               font=("Segoe UI", base_font_size), 
+                               fg=self.colors['text_secondary'],
+                               bg=self.colors['surface_alt'],
+                               wraplength=800)
         instructions.pack(pady=(0, 20))
-        self.admin_tab_widgets['labels'].append(instructions)
+        self.store_hours_tab_widgets['labels'].append(instructions)
         
-        # Create frame for store hours editor
-        hours_frame = tk.Frame(main_frame)
+        hours_frame = tk.Frame(hours_tile, bg=self.colors['surface_alt'])
         hours_frame.pack(fill="both", expand=True)
         
-        # Headers - use calculated font sizes
-        header_font = ("Arial", base_font_size, "bold")
-        day_header = tk.Label(hours_frame, text="Day", font=header_font)
-        day_header.grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        self.admin_tab_widgets['headers'].append(day_header)
+        # Store reference for dynamic column width updates
+        self.hours_frame = hours_frame
+
+        # Headers with better styling
+        header_font = ("Segoe UI", base_font_size, "bold")
         
-        open_header = tk.Label(hours_frame, text="Open", font=header_font)
-        open_header.grid(row=0, column=1, padx=10, pady=5)
-        self.admin_tab_widgets['headers'].append(open_header)
+        # Configure column weights for proper alignment
+        hours_frame.grid_columnconfigure(0, weight=1, minsize=120)  # Day column
+        hours_frame.grid_columnconfigure(1, weight=0, minsize=80)   # Open checkbox column
+        hours_frame.grid_columnconfigure(2, weight=0, minsize=60)   # Start label column
+        hours_frame.grid_columnconfigure(3, weight=0, minsize=120)  # Start time column
+        hours_frame.grid_columnconfigure(4, weight=0, minsize=60)   # End label column
+        hours_frame.grid_columnconfigure(5, weight=0, minsize=120)  # End time column
         
-        start_header = tk.Label(hours_frame, text="Start Time", font=header_font)
-        start_header.grid(row=0, column=2, padx=10, pady=5)
-        self.admin_tab_widgets['headers'].append(start_header)
+        # Create header row that matches the day row structure
+        day_header = tk.Label(hours_frame, text="Day", font=header_font,
+                            bg=self.colors['surface_alt'], fg=self.colors['text_primary'],
+                            anchor="w")
+        day_header.grid(row=0, column=0, padx=15, sticky="w", pady=(0, 10))
+        self.store_hours_tab_widgets['headers'].append(day_header)
         
-        end_header = tk.Label(hours_frame, text="End Time", font=header_font)
-        end_header.grid(row=0, column=3, padx=10, pady=5)
-        self.admin_tab_widgets['headers'].append(end_header)
+        open_header = tk.Label(hours_frame, text="Open", font=header_font,
+                             bg=self.colors['surface_alt'], fg=self.colors['text_primary'])
+        open_header.grid(row=0, column=1, padx=15, pady=(0, 10))
+        self.store_hours_tab_widgets['headers'].append(open_header)
+        
+        start_header = tk.Label(hours_frame, text="Start Time", font=header_font,
+                              bg=self.colors['surface_alt'], fg=self.colors['text_primary'])
+        start_header.grid(row=0, column=2, columnspan=2, padx=15, pady=(0, 10))
+        self.store_hours_tab_widgets['headers'].append(start_header)
+        
+        end_header = tk.Label(hours_frame, text="End Time", font=header_font,
+                            bg=self.colors['surface_alt'], fg=self.colors['text_primary'])
+        end_header.grid(row=0, column=4, columnspan=2, padx=15, pady=(0, 10))
+        self.store_hours_tab_widgets['headers'].append(end_header)
         
         # Store widgets for each day
         self.store_hours_widgets = {}
         days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        # day_emojis = ["🌙", "💼", "💼", "💼", "💼", "🌅", "☀️"]  # Sunday, Mon-Fri, Saturday
         
         # Generate time options (all possible times)
         all_times = generate_times("12:00 AM", "11:30 PM", 30)
         
         for i, day in enumerate(days):
             row = i + 1
+
+            # Day row container
+            day_row_frame = tk.Frame(hours_frame, bg=self.colors['surface_alt'])
+            day_row_frame.grid(row=row, column=0, columnspan=6, sticky="ew", pady=5)
             
-            # Day label - use calculated font
-            day_label = tk.Label(hours_frame, text=day.capitalize(), font=("Arial", base_font_size))
-            day_label.grid(row=row, column=0, padx=10, pady=5, sticky="w")
-            self.admin_tab_widgets['labels'].append(day_label)
+            # Configure the day row frame columns to match parent
+            day_row_frame.grid_columnconfigure(0, weight=1, minsize=120)
+            day_row_frame.grid_columnconfigure(1, weight=0, minsize=80)
+            day_row_frame.grid_columnconfigure(2, weight=0, minsize=60)
+            day_row_frame.grid_columnconfigure(3, weight=0, minsize=120)
+            day_row_frame.grid_columnconfigure(4, weight=0, minsize=60)
+            day_row_frame.grid_columnconfigure(5, weight=0, minsize=120)
+            
+            # Day label with emoji
+            day_label = tk.Label(day_row_frame, 
+                               text=f"{day.capitalize()}", 
+                               font=("Segoe UI", base_font_size, "normal"),
+                               bg=self.colors['surface_alt'],
+                               fg=self.colors['text_primary'],
+                               width=12,
+                               anchor="w")
+            day_label.grid(row=0, column=0, padx=15, sticky="w")
+            self.store_hours_tab_widgets['labels'].append(day_label)
             
             # Open checkbox
             is_open_var = tk.IntVar()
@@ -1791,20 +3296,43 @@ Brought to you by WILLSTER"""
             if day_hours is not None:
                 is_open_var.set(1)
             
-            open_cb = tk.Checkbutton(hours_frame, variable=is_open_var)
-            open_cb.grid(row=row, column=1, padx=10, pady=5)
-            
+            open_cb = tk.Checkbutton(day_row_frame, 
+                                   variable=is_open_var,
+                                   bg=self.colors['surface_alt'],
+                                   fg=self.colors['text_primary'],
+                                   activebackground=self.colors['surface_alt'],
+                                   selectcolor=self.colors['surface_alt'],
+                                   font=("Segoe UI", base_font_size + 1),
+                                   text="Open")
+            open_cb.grid(row=0, column=1, padx=15)
+
             # Start time combobox
-            start_var = tk.StringVar()
-            start_cb = ttk.Combobox(hours_frame, textvariable=start_var, values=all_times, 
-                                   state="readonly", width=12)
-            start_cb.grid(row=row, column=2, padx=10, pady=5)
+            start_label = tk.Label(day_row_frame,
+                                 text="Start:",
+                                 font=("Segoe UI", base_font_size + 1),
+                                 bg=self.colors['surface_alt'],
+                                 fg=self.colors['text_primary'])
+            start_label.grid(row=0, column=2, sticky="w", padx=(0, 8))
+            self.store_hours_tab_widgets['labels'].append(start_label)
             
+            start_var = tk.StringVar()
+            start_cb = ttk.Combobox(day_row_frame, textvariable=start_var, values=all_times, 
+                                   state="readonly", width=10, font=("Segoe UI", base_font_size))
+            start_cb.grid(row=0, column=3, padx=(0, 15))
+
             # End time combobox
+            end_label = tk.Label(day_row_frame,
+                               text="End:",
+                               font=("Segoe UI", base_font_size + 1),
+                               bg=self.colors['surface_alt'],
+                               fg=self.colors['text_primary'])
+            end_label.grid(row=0, column=4, sticky="w", padx=(0, 8))
+            self.store_hours_tab_widgets['labels'].append(end_label)
+            
             end_var = tk.StringVar()
-            end_cb = ttk.Combobox(hours_frame, textvariable=end_var, values=all_times, 
-                                 state="readonly", width=12)
-            end_cb.grid(row=row, column=3, padx=10, pady=5)
+            end_cb = ttk.Combobox(day_row_frame, textvariable=end_var, values=all_times, 
+                                 state="readonly", width=10, font=("Segoe UI", base_font_size))
+            end_cb.grid(row=0, column=5, padx=(0, 15))
             
             # Set initial values
             if day_hours is not None:
@@ -1812,14 +3340,19 @@ Brought to you by WILLSTER"""
                 end_cb.set(day_hours[1])
                 start_cb.configure(state="readonly")
                 end_cb.configure(state="readonly")
+                start_label.configure(fg=self.colors['text_primary'])
+                end_label.configure(fg=self.colors['text_primary'])
             else:
                 start_cb.set("")
                 end_cb.set("")
                 start_cb.configure(state="disabled")
                 end_cb.configure(state="disabled")
+                start_label.configure(fg=self.colors['text_muted'])
+                end_label.configure(fg=self.colors['text_muted'])
             
             # Toggle function for enabling/disabling time selectors
-            def make_toggle(s_cb=start_cb, e_cb=end_cb, v=is_open_var, d=day):
+            def make_toggle(s_cb=start_cb, e_cb=end_cb, v=is_open_var, d=day, 
+                          s_lbl=start_label, e_lbl=end_label):
                 def toggle(*args):
                     if v.get():
                         # Enable and set default times
@@ -1827,12 +3360,16 @@ Brought to you by WILLSTER"""
                         e_cb.set("7:00 PM")
                         s_cb.configure(state="readonly")
                         e_cb.configure(state="readonly")
+                        s_lbl.configure(fg=self.colors['text_primary'])
+                        e_lbl.configure(fg=self.colors['text_primary'])
                     else:
                         # Disable and clear
                         s_cb.set("")
                         e_cb.set("")
                         s_cb.configure(state="disabled")
                         e_cb.configure(state="disabled")
+                        s_lbl.configure(fg=self.colors['text_muted'])
+                        e_lbl.configure(fg=self.colors['text_muted'])
                     # Trigger auto-save
                     self.mark_store_hours_dirty()
                 return toggle
@@ -1852,18 +3389,87 @@ Brought to you by WILLSTER"""
                 'end_cb': end_cb
             }
         
-        # Auto-save indicator
-        save_frame = tk.Frame(main_frame)
-        save_frame.pack(pady=20)
+        # Auto-save indicator (inside hours tile)
+        save_container = tk.Frame(hours_tile, bg=self.colors['surface_alt'])
+        save_container.pack(pady=(15, 0))
+        
+        save_frame = tk.Frame(save_container, bg=self.colors['surface_alt'], 
+                            relief='flat', padx=10, pady=5)
+        save_frame.pack()
+        
+        save_icon = tk.Label(save_frame, text="💾", 
+                           font=("Segoe UI", base_font_size - 1),
+                           bg=self.colors['surface_alt'])
+        save_icon.pack(side="left", padx=(0, 5))
         
         tk.Label(save_frame, text="Changes save automatically", 
-                font=("Arial", 11, "bold")).pack(side="left")
-        self.store_hours_indicator = tk.Label(save_frame, text="", fg="red", 
-                                              font=("Arial", 10, "bold"))
-        self.store_hours_indicator.pack(side="left", padx=(8, 0))
+                font=("Segoe UI", base_font_size - 1, "normal"),
+                bg=self.colors['surface_alt'],
+                fg=self.colors['text_secondary']).pack(side="left")
+        
+        self.store_hours_indicator = tk.Label(save_frame, text="", 
+                                            fg=self.colors['success'], 
+                                            font=("Segoe UI", base_font_size - 1, "bold"),
+                                            bg=self.colors['surface_alt'])
+        self.store_hours_indicator.pack(side="left", padx=(5, 0))
         
         # Initialize auto-save timer
         self._store_hours_timer = None
+        
+        # Initial sizing of tile layout
+        self.root.after(100, self.update_hours_container_size)
+    
+    def add_store_hours_settings_section(self, title, description, settings_widgets):
+        """
+        Helper method to add new settings sections below the store hours.
+        
+        Args:
+            title (str): Section title
+            description (str): Section description
+            settings_widgets (list): List of widget creation functions
+        
+        Example usage:
+            def create_notification_settings(parent):
+                # Create notification-related widgets in parent
+                pass
+            
+            self.add_store_hours_settings_section(
+                "Notification Settings",
+                "Configure email and SMS notifications",
+                [create_notification_settings]
+            )
+        """
+        if not hasattr(self, 'hours_container'):
+            return
+            
+        # Add separator
+        separator = tk.Frame(self.hours_container, height=2, bg=self.colors['border'])
+        separator.pack(fill="x", pady=20)
+        
+        base_font_size = self.calculate_font_size()
+        header_font_size = min(base_font_size + 4, self.max_font_size)
+        
+        # Section title
+        title_label = tk.Label(self.hours_container, text=title,
+                              font=("Segoe UI", header_font_size, "bold"),
+                              bg=self.colors['surface_alt'],
+                              fg=self.colors['text_primary'])
+        title_label.pack(pady=(15, 10))
+        self.store_hours_tab_widgets['headers'].append(title_label)
+        
+        # Section description
+        if description:
+            desc_label = tk.Label(self.hours_container, text=description,
+                                 font=("Segoe UI", base_font_size),
+                                 fg=self.colors['text_secondary'],
+                                 bg=self.colors['surface_alt'],
+                                 wraplength=600)
+            desc_label.pack(pady=(0, 15))
+            self.store_hours_tab_widgets['labels'].append(desc_label)
+        
+        # Add widgets
+        for widget_func in settings_widgets:
+            widget_func(self.hours_container)
     
     def mark_store_hours_dirty(self):
         """Mark store hours as dirty and schedule auto-save"""
@@ -1979,28 +3585,51 @@ Brought to you by WILLSTER"""
         for w in self.calendar_frame.winfo_children():
             w.destroy()
 
-        # Calculate font sizes once for the entire calendar
+        # Calculate font sizes once for the entire calendar with modern fonts
         base_font_size = self.calculate_font_size()
-        header_font = ("Arial", base_font_size, "bold")
-        day_font = ("Arial", base_font_size, "bold")
-        shift_font_size = max(int(base_font_size * 0.8), self.min_font_size)
-        shift_font = ("Arial", shift_font_size)
+        header_font = ("Segoe UI", base_font_size, "bold")
+        day_font = ("Segoe UI", max(base_font_size - 3, 6), "bold")  # Much smaller day numbers
+        shift_font_size = max(int(base_font_size * 0.85), self.min_font_size)
+        shift_font = ("Segoe UI", shift_font_size)
 
         # Header label
         month_name = datetime(self.current_year, self.current_month, 1).strftime("%B %Y")
-        self.month_label.config(text=month_name)
+        self.month_label.config(text=month_name, font=("Segoe UI", base_font_size + 4, "bold"))
 
-        # Configure calendar frame to expand cells evenly
+        # Configure calendar frame to expand cells evenly with proper constraints
         for i in range(7):  # 7 columns for days
-            self.calendar_frame.grid_columnconfigure(i, weight=1)
-        for i in range(7):  # 6 rows for weeks + 1 for headers
-            self.calendar_frame.grid_rowconfigure(i, weight=1)
+            self.calendar_frame.grid_columnconfigure(i, weight=1, minsize=140)
+        for i in range(7):  # 6 rows for weeks + 1 for headers  
+            if i == 0:  # Header row
+                self.calendar_frame.grid_rowconfigure(i, weight=0, minsize=35)
+            else:  # Calendar rows
+                self.calendar_frame.grid_rowconfigure(i, weight=1, minsize=100, uniform="calendar_row")
 
-        # Weekday headers - use calculated font size
-        days_header = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
-        for c, dh in enumerate(days_header):
-            lbl = tk.Label(self.calendar_frame, text=dh, font=header_font, borderwidth=1, relief="groove")
-            lbl.grid(row=0, column=c, padx=1, pady=1, sticky="nsew")
+        # Add global click handler to close menus when clicking outside cells
+        def close_all_menus(event=None):
+            # Import the class here to avoid circular reference
+            if hasattr(self, '_temp_cell_menu_class'):
+                if self._temp_cell_menu_class.active_manager:
+                    self._temp_cell_menu_class.active_manager.hide_menu()
+        
+        self.calendar_frame.bind("<Button-1>", close_all_menus)
+
+        # Weekday headers
+        days_header = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+        day_abbrev = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+        for c, (dh, abbrev) in enumerate(zip(days_header, day_abbrev)):
+            header_frame = tk.Frame(self.calendar_frame, 
+                                  bg=self.colors['primary'],
+                                  relief='flat',
+                                  bd=0)
+            header_frame.grid(row=0, column=c, padx=1, pady=1, sticky="nsew")
+            
+            lbl = tk.Label(header_frame, text=abbrev, 
+                         font=header_font,
+                         bg=self.colors['primary'],
+                         fg='white',
+                         pady=8)
+            lbl.pack(fill="both", expand=True)
 
         # Set calendar to start on Sunday (6 = Sunday in Python's calendar module)
         cal = calendar.Calendar(firstweekday=6)
@@ -2008,48 +3637,327 @@ Brought to you by WILLSTER"""
         # Rows for weeks start at row 1
         for r, week in enumerate(month_days, start=1):
             for c, day in enumerate(week):
-                # Create cell frame that will expand with window
-                cell_frame = tk.Frame(self.calendar_frame, borderwidth=1, relief="solid")
-                cell_frame.grid(row=r, column=c, padx=2, pady=2, sticky="nsew")
+                # Create modern cell frame
+                cell_bg = self.colors['surface'] if day > 0 else self.colors['surface_alt']
+                if day > 0:
+                    # Check if this day is a weekend for different styling
+                    day_of_week = c  # 0=Sunday, 6=Saturday
+                    if day_of_week == 0 or day_of_week == 6:  # Weekend
+                        cell_bg = self.colors['surface_alt']
                 
-                # Make the cell contents expand with the cell
+                cell_frame = tk.Frame(self.calendar_frame, 
+                                    bg=cell_bg,
+                                    relief='flat',
+                                    bd=1,
+                                    highlightbackground=self.colors['border'],
+                                    highlightthickness=1)
+                cell_frame.grid(row=r, column=c, padx=1, pady=1, sticky="nsew")
+                
+                # Make the cell contents expand with the cell but with constraints
                 cell_frame.grid_columnconfigure(0, weight=1)
-                cell_frame.grid_rowconfigure(0, weight=1)
-                cell_frame.grid_rowconfigure(1, weight=4)  # Give more space to schedule area
+                cell_frame.grid_rowconfigure(0, weight=0, minsize=25)  # Header row - fixed height
+                cell_frame.grid_rowconfigure(1, weight=1)  # Content row - expandable but constrained
+                cell_frame.grid_rowconfigure(2, weight=0, minsize=15)  # Bottom space for trigger icon
 
-                # Create hover effect manager for this cell
-                class CellHoverManager:
+                # Create simple menu manager for this cell
+                class CellMenuManager:
+                    # Class variable to track currently active menu
+                    active_manager = None
+                    
                     def __init__(self, master):
                         self.master = master
-                        self.hover_active = False
-                        self.mouse_inside = False
+                        self.menu_visible = False
+                        self.day_str = None
+                        self.shifts = None
+                        self.parent_app = None
                         
-                        # Calculate icon size (will be set properly when parent_app is available)
-                        icon_size = 14  # Default size, will be updated when actions are set
+                        # Create clean menu container
+                        self.menu_frame = tk.Frame(master, bg="#2C2C2C", relief="raised", bd=2)
+                        self.menu_frame.place_forget()  # Hidden initially
                         
-                        # Create three action icons with better clickability
-                        # 1. Edit icon (pen) - with padding for easier clicking
-                        self.edit_label = tk.Label(master, text="✏️", font=("Arial", icon_size), 
-                                                 fg="#4A4A4A", bg="SystemButtonFace", cursor="hand2",
-                                                 padx=4, pady=2, relief="flat")
-                        self.edit_label.place_forget()
+                        # Store original cell background for vignette effect
+                        self.original_bg = master.cget('bg')
                         
-                        # 2. Copy icon (clipboard) - with padding for easier clicking
-                        self.copy_label = tk.Label(master, text="📋", font=("Arial", icon_size), 
-                                                 fg="#2E8B57", bg="SystemButtonFace", cursor="hand2",
-                                                 padx=4, pady=2, relief="flat")
-                        self.copy_label.place_forget()
+                        # Create menu buttons
+                        self.create_menu_buttons()
                         
-                        # 3. Delete icon (trash) - with padding for easier clicking
-                        self.delete_label = tk.Label(master, text="🗑️", font=("Arial", icon_size), 
-                                                   fg="#B22222", bg="SystemButtonFace", cursor="hand2",
-                                                   padx=4, pady=2, relief="flat")
-                        self.delete_label.place_forget()
+                        # Track widgets for click binding
+                        self.cell_widgets = []
+                    
+                    def create_menu_buttons(self):
+                        """Create clean, responsive menu buttons"""
+                        button_configs = [
+                            ("✎", "#4A90E2", "Edit shifts for this day", self.edit_action),
+                            ("📋", "#50C878", "Copy all shifts from this day", self.copy_action),
+                            ("📄", "#FF8C42", "Paste copied shifts to this day", self.paste_action),
+                            ("🗑", "#FF6B6B", "Delete all shifts from this day", self.delete_action)
+                        ]
                         
-                        # Add hover handling to all icons
-                        for icon in [self.edit_label, self.copy_label, self.delete_label]:
-                            icon.bind("<Enter>", self.on_icon_enter)
-                            icon.bind("<Leave>", self.on_icon_leave)
+                        for i, (icon, color, tooltip, action) in enumerate(button_configs):
+                            btn = tk.Button(
+                                self.menu_frame,
+                                text=icon,
+                                font=("Segoe UI", 12),
+                                bg=color,
+                                fg="white",
+                                relief="flat",
+                                bd=0,
+                                width=3,
+                                height=1,
+                                cursor="hand2",
+                                command=action
+                            )
+                            btn.pack(side="left", padx=2, pady=4)
+                            
+                            # Add hover effects and tooltip
+                            btn.bind("<Enter>", lambda e, b=btn, c=color, t=tooltip: self.on_button_enter_with_tooltip(b, e, c, t))
+                            btn.bind("<Leave>", lambda e, b=btn, c=color: self.on_button_leave_with_tooltip(b, e, c))
+                    
+                    def on_button_enter_with_tooltip(self, button, event, original_color, tooltip_text):
+                        """Button hover effect with tooltip"""
+                        # Lighten the color on hover
+                        button.configure(bg=self.lighten_color(original_color))
+                        
+                        # Show tooltip
+                        self.show_tooltip(button, event, tooltip_text)
+                    
+                    def on_button_leave_with_tooltip(self, button, event, original_color):
+                        """Button leave effect with tooltip cleanup"""
+                        button.configure(bg=original_color)
+                        
+                        # Hide tooltip
+                        self.hide_tooltip(button, event)
+                    
+                    def show_tooltip(self, widget, event, text):
+                        """Show tooltip with delay"""
+                        # Cancel any existing tooltip timer
+                        if hasattr(widget, 'tooltip_timer'):
+                            widget.after_cancel(widget.tooltip_timer)
+                        
+                        # Store event coordinates for use in delayed callback
+                        widget.tooltip_x = event.x_root
+                        widget.tooltip_y = event.y_root
+                        widget.tooltip_text_stored = text
+                        
+                        # Add a small delay before showing tooltip
+                        widget.tooltip_timer = widget.after(500, lambda: self.do_show_tooltip(widget))
+                    
+                    def do_show_tooltip(self, widget):
+                        """Actually create and show the tooltip"""
+                        try:
+                            # Check if we still have coordinates (mouse might have left)
+                            if not hasattr(widget, 'tooltip_x') or not hasattr(widget, 'tooltip_text_stored'):
+                                return
+                            
+                            tooltip = tk.Toplevel()
+                            tooltip.wm_overrideredirect(True)
+                            tooltip.wm_geometry(f"+{widget.tooltip_x+15}+{widget.tooltip_y+10}")
+                            
+                            label = tk.Label(tooltip, text=widget.tooltip_text_stored, background="#2C3E50", 
+                                           fg="white", relief="solid", borderwidth=1, 
+                                           font=("Segoe UI", 9), padx=8, pady=4)
+                            label.pack()
+                            
+                            # Store tooltip reference
+                            widget.tooltip = tooltip
+                            
+                            # Auto-hide after 4 seconds
+                            tooltip.after(4000, lambda: tooltip.destroy() if tooltip.winfo_exists() else None)
+                        except Exception as e:
+                            print(f"Tooltip error: {e}")  # Debug output
+                    
+                    def hide_tooltip(self, widget, event):
+                        """Hide tooltip and clean up"""
+                        # Cancel pending tooltip if mouse leaves quickly
+                        if hasattr(widget, 'tooltip_timer'):
+                            widget.after_cancel(widget.tooltip_timer)
+                            delattr(widget, 'tooltip_timer')
+                        
+                        # Clear stored data
+                        if hasattr(widget, 'tooltip_x'):
+                            delattr(widget, 'tooltip_x')
+                        if hasattr(widget, 'tooltip_y'):
+                            delattr(widget, 'tooltip_y')
+                        if hasattr(widget, 'tooltip_text_stored'):
+                            delattr(widget, 'tooltip_text_stored')
+                        
+                        # Hide existing tooltip
+                        if hasattr(widget, 'tooltip'):
+                            try:
+                                if widget.tooltip.winfo_exists():
+                                    widget.tooltip.destroy()
+                            except:
+                                pass
+                    
+                    def on_button_enter(self, button, original_color):
+                        """Button hover effect"""
+                        # Lighten the color on hover
+                        button.configure(bg=self.lighten_color(original_color))
+                    
+                    def on_button_leave(self, button, original_color):
+                        """Button leave effect"""
+                        button.configure(bg=original_color)
+                    
+                    def lighten_color(self, color):
+                        """Lighten a hex color"""
+                        try:
+                            color = color.lstrip('#')
+                            rgb = tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
+                            # Lighten by adding 30 to each component, max 255
+                            lighter_rgb = tuple(min(255, c + 30) for c in rgb)
+                            return f"#{lighter_rgb[0]:02x}{lighter_rgb[1]:02x}{lighter_rgb[2]:02x}"
+                        except:
+                            return color
+                    
+                    def show_menu(self):
+                        """Show menu in center of cell"""
+                        if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
+                            CellMenuManager.active_manager.hide_menu()
+                        
+                        CellMenuManager.active_manager = self
+                        self.menu_visible = True
+                        
+                        # Apply vignette effect
+                        self.apply_vignette()
+                        
+                        # Position menu in center of cell
+                        self.position_menu()
+                        self.menu_frame.tkraise()
+                    
+                    def hide_menu(self):
+                        """Hide menu and restore cell appearance"""
+                        if self.menu_visible:
+                            self.menu_visible = False
+                            self.menu_frame.place_forget()
+                            self.remove_vignette()
+                            
+                            if CellMenuManager.active_manager == self:
+                                CellMenuManager.active_manager = None
+                    
+                    def position_menu(self):
+                        """Position menu in center of cell"""
+                        self.master.update_idletasks()
+                        self.menu_frame.update_idletasks()
+                        
+                        # Get cell dimensions
+                        cell_width = self.master.winfo_width()
+                        cell_height = self.master.winfo_height()
+                        menu_width = self.menu_frame.winfo_reqwidth()
+                        menu_height = self.menu_frame.winfo_reqheight()
+                        
+                        # Center the menu
+                        x = (cell_width - menu_width) // 2
+                        y = (cell_height - menu_height) // 2
+                        
+                        self.menu_frame.place(x=x, y=y)
+                    
+                    def apply_vignette(self):
+                        """Apply subtle vignette effect to cell"""
+                        darkened = self.darken_color(self.original_bg)
+                        self.master.configure(bg=darkened)
+                    
+                    def remove_vignette(self):
+                        """Remove vignette effect"""
+                        self.master.configure(bg=self.original_bg)
+                    
+                    def darken_color(self, color):
+                        """Darken a color by 20%"""
+                        try:
+                            if color.startswith('#'):
+                                color = color[1:]
+                            
+                            r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
+                            r, g, b = int(r * 0.8), int(g * 0.8), int(b * 0.8)
+                            return f"#{r:02x}{g:02x}{b:02x}"
+                        except:
+                            return "#E0E0E0"
+                    
+                    def toggle_menu(self):
+                        """Toggle menu visibility"""
+                        if self.menu_visible:
+                            self.hide_menu()
+                        else:
+                            self.show_menu()
+                    
+                    def setup_cell_click(self, day_str, shifts, parent_app):
+                        """Setup cell for click interaction"""
+                        self.day_str = day_str
+                        self.shifts = shifts
+                        self.parent_app = parent_app
+                        
+                        # Bind click to entire cell
+                        self.master.bind("<Button-1>", self.handle_cell_click)
+                        
+                        # Bind click to all child widgets too
+                        self.bind_widget_clicks(self.master)
+                    
+                    def bind_widget_clicks(self, widget):
+                        """Recursively bind clicks to all widgets in cell"""
+                        try:
+                            for child in widget.winfo_children():
+                                if child != self.menu_frame:
+                                    child.bind("<Button-1>", self.handle_cell_click)
+                                    self.bind_widget_clicks(child)
+                        except:
+                            pass
+                    
+                    def handle_cell_click(self, event=None):
+                        """Handle cell click to toggle menu"""
+                        if event:
+                            # Prevent event propagation
+                            try:
+                                event.widget.tk.call('break')
+                            except:
+                                pass
+                        
+                        # If there's already an active menu from another cell, hide it first
+                        if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
+                            CellMenuManager.active_manager.hide_menu()
+                        
+                        # If this cell's menu is visible, hide it (click to close)
+                        if self.menu_visible:
+                            self.hide_menu()
+                        else:
+                            # Show this cell's menu
+                            self.show_menu()
+                        
+                        return "break"
+                    
+                    # Action methods
+                    def edit_action(self):
+                        """Handle edit action"""
+                        self.hide_menu()
+                        if self.parent_app:
+                            self.parent_app.open_day_editor_dialog(self.day_str, self.shifts)
+                    
+                    def copy_action(self):
+                        """Handle copy action"""
+                        self.hide_menu()
+                        if self.parent_app:
+                            self.parent_app.copied_shifts = self.shifts[:]
+                            print(f"Copied {len(self.shifts)} shifts")
+                    
+                    def paste_action(self):
+                        """Handle paste action"""
+                        self.hide_menu()
+                        if self.parent_app and hasattr(self.parent_app, 'copied_shifts'):
+                            for shift in self.parent_app.copied_shifts:
+                                if shift not in self.shifts:
+                                    self.shifts.append(shift)
+                            self.parent_app.draw_calendar()
+                            print(f"Pasted {len(self.parent_app.copied_shifts)} shifts")
+                    
+                    def delete_action(self):
+                        """Handle delete action"""
+                        self.hide_menu()
+                        if self.shifts:
+                            self.shifts.clear()
+                            if self.parent_app:
+                                self.parent_app.draw_calendar()
+                            print("Cleared all shifts for this day")
+                        
+                        # Hide buttons initially
+                        self.button_container.place_forget()
                         
                         self.widgets_to_tint = []
                         
@@ -2058,157 +3966,448 @@ Brought to you by WILLSTER"""
                         self.shifts = None
                         self.parent_app = None
                         
-                    def update_icon_sizes(self, parent_app):
-                        """Update icon sizes and positions based on parent app's font calculation"""
-                        if parent_app:
-                            base_font_size = parent_app.calculate_font_size()
-                            icon_size = int(min(base_font_size * 1.2, 18))
+                        # Bind window resize events to update hover detection
+                        self.master.bind("<Configure>", self.on_cell_resize, add="+")
+                        
+                        # Track mouse position more accurately
+                        self.last_mouse_check = 0
+                        self.mouse_check_interval = 100  # ms
+                        self.continuous_tracking = False
+                        self.tracking_timer = None
+                        
+                    def create_modern_bubble_button(self, icon, primary_color, hover_color, tooltip):
+                        """Create a modern bubble-style button with smooth hover effects"""
+                        btn_frame = tk.Frame(self.button_container, bg=self.button_container.cget('bg'))
+                        
+                        # Main button with fixed icon and consistent styling
+                        btn = tk.Label(btn_frame, text=icon, font=("Segoe UI", 14, "bold"), 
+                                     fg="white", bg=primary_color, cursor="hand2",
+                                     width=3, height=1, relief="raised", bd=2)
+                        btn.pack(padx=2, pady=2)
+                        
+                        # Store colors and icon for hover effects (icon never changes)
+                        btn.primary_color = primary_color
+                        btn.hover_color = hover_color
+                        btn.tooltip_text = tooltip
+                        btn.original_icon = icon  # Store the original icon
+                        
+                        # Add shadow effect by creating a background frame
+                        shadow_frame = tk.Frame(btn_frame, bg="#CCCCCC", height=2)
+                        shadow_frame.pack(fill="x", padx=4)
+                        
+                        # Bind hover effects and tooltip together
+                        btn.bind("<Enter>", lambda e: self.on_bubble_button_enter_with_tooltip(btn, e))
+                        btn.bind("<Leave>", lambda e: self.on_bubble_button_leave_with_tooltip(btn, e))
+                        
+                        return btn_frame
+                    
+                    def on_bubble_button_enter_with_tooltip(self, btn, event):
+                        """Handle button enter with both hover effect and tooltip"""
+                        # Apply hover effect
+                        self.on_button_hover_enter(btn)
+                        
+                        # Show tooltip
+                        self.show_bubble_tooltip(btn, event, btn.tooltip_text)
+                    
+                    def on_bubble_button_leave_with_tooltip(self, btn, event):
+                        """Handle button leave with both hover effect and tooltip cleanup"""
+                        # Remove hover effect
+                        self.on_button_hover_leave(btn)
+                        
+                        # Hide tooltip
+                        self.hide_bubble_tooltip(btn, event)
+                    
+                    def show_bubble_tooltip(self, widget, event, text):
+                        """Show tooltip with delay"""
+                        # Cancel any existing tooltip timer
+                        if hasattr(widget, 'tooltip_timer'):
+                            widget.after_cancel(widget.tooltip_timer)
+                        
+                        # Store event coordinates for use in delayed callback
+                        widget.tooltip_x = event.x_root
+                        widget.tooltip_y = event.y_root
+                        widget.tooltip_text_stored = text
+                        
+                        # Add a small delay before showing tooltip
+                        widget.tooltip_timer = widget.after(500, lambda: self.do_show_bubble_tooltip(widget))
+                    
+                    def do_show_bubble_tooltip(self, widget):
+                        """Actually create and show the tooltip"""
+                        try:
+                            # Check if we still have coordinates (mouse might have left)
+                            if not hasattr(widget, 'tooltip_x') or not hasattr(widget, 'tooltip_text_stored'):
+                                return
                             
-                            icon_font = ("Arial", icon_size)
-                            for icon in [self.edit_label, self.copy_label, self.delete_label]:
+                            tooltip = tk.Toplevel()
+                            tooltip.wm_overrideredirect(True)
+                            tooltip.wm_geometry(f"+{widget.tooltip_x+15}+{widget.tooltip_y+10}")
+                            
+                            label = tk.Label(tooltip, text=widget.tooltip_text_stored, background="#2C3E50", 
+                                           fg="white", relief="solid", borderwidth=1, 
+                                           font=("Segoe UI", 9), padx=8, pady=4)
+                            label.pack()
+                            
+                            # Store tooltip reference
+                            widget.tooltip = tooltip
+                            
+                            # Auto-hide after 4 seconds
+                            tooltip.after(4000, lambda: tooltip.destroy() if tooltip.winfo_exists() else None)
+                        except Exception as e:
+                            print(f"Tooltip error: {e}")  # Debug output
+                    
+                    def hide_bubble_tooltip(self, widget, event):
+                        """Hide tooltip and clean up"""
+                        # Cancel pending tooltip if mouse leaves quickly
+                        if hasattr(widget, 'tooltip_timer'):
+                            widget.after_cancel(widget.tooltip_timer)
+                            delattr(widget, 'tooltip_timer')
+                        
+                        # Clear stored data
+                        if hasattr(widget, 'tooltip_x'):
+                            delattr(widget, 'tooltip_x')
+                        if hasattr(widget, 'tooltip_y'):
+                            delattr(widget, 'tooltip_y')
+                        if hasattr(widget, 'tooltip_text_stored'):
+                            delattr(widget, 'tooltip_text_stored')
+                        
+                        # Hide existing tooltip
+                        if hasattr(widget, 'tooltip'):
+                            try:
+                                if widget.tooltip.winfo_exists():
+                                    widget.tooltip.destroy()
+                            except:
+                                pass
+                    
+                    def on_button_hover_enter(self, btn):
+                        """Smooth hover enter effect for buttons - no size changes"""
+                        btn.configure(bg=btn.hover_color, relief="solid", bd=2)
+                    
+                    def on_button_hover_leave(self, btn):
+                        """Smooth hover leave effect for buttons - no size changes"""
+                        btn.configure(bg=btn.primary_color, relief="raised", bd=2)
+                        
+                    def on_cell_resize(self, event=None):
+                        """Handle cell resize events to update hover areas"""
+                        # Only process resize events for the master cell frame
+                        if event and event.widget != self.master:
+                            return
+                        
+                        # Update trigger icon size based on new cell size
+                        self.update_trigger_icon_for_size()
+                        
+                        # If buttons are visible, reposition them
+                        if self.menu_visible:
+                            try:
+                                # Reposition button container
+                                self.button_container.place(relx=0.5, rely=0.70, anchor="center")
+                                self.button_container.lift()
+                            except:
+                                pass
+                        elif self.hover_active:
+                            # Reposition trigger icon if it's visible
+                            try:
+                                self.trigger_icon.place(relx=0.5, rely=0.95, anchor="s")
+                                self.trigger_icon.lift()
+                            except:
+                                pass
+                        
+                        # Start continuous tracking for a short period after resize
+                        self.start_continuous_tracking()
+                    
+                    def start_continuous_tracking(self):
+                        """Start continuous mouse tracking for better resize responsiveness"""
+                        if not self.continuous_tracking:
+                            self.continuous_tracking = True
+                            self.track_mouse_continuously()
+                            # Stop continuous tracking after 2 seconds
+                            if self.tracking_timer:
+                                self.master.after_cancel(self.tracking_timer)
+                            self.tracking_timer = self.master.after(2000, self.stop_continuous_tracking)
+                    
+                    def stop_continuous_tracking(self):
+                        """Stop continuous mouse tracking"""
+                        self.continuous_tracking = False
+                        if self.tracking_timer:
+                            self.master.after_cancel(self.tracking_timer)
+                            self.tracking_timer = None
+                    
+                    def track_mouse_continuously(self):
+                        """Continuously track mouse position during resize periods"""
+                        if not self.continuous_tracking:
+                            return
+                        
+                        try:
+                            # Check current mouse position
+                            mouse_over_cell = self.is_mouse_over_cell()
+                            mouse_over_buttons = self.mouse_over_buttons()
+                            
+                            if mouse_over_cell and not self.hover_active:
+                                # Hide trigger icon from previously active hover manager
+                                if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
+                                    CellMenuManager.active_manager.hide_menu()
+                                
+                                # Set this as the active hover manager
+                                CellMenuManager.active_manager = self
+                                
+                                self.hover_active = True
+                                self.mouse_inside = True
+                                self.show_trigger_icon()
+                            elif not mouse_over_cell and not mouse_over_buttons and self.hover_active:
+                                self.hover_active = False
+                                self.mouse_inside = False
+                                self.hide_trigger_icon()
+                                if self.menu_visible:
+                                    self.hide_menu()
+                        except:
+                            pass
+                        
+                        # Continue tracking
+                        if self.continuous_tracking:
+                            self.master.after(100, self.track_mouse_continuously)
+                    
+                    def show_buttons(self):
+                        """Show buttons with instant pop-in effect and vignette"""
+                        if self.menu_visible:
+                            return
+                        
+                        self.menu_visible = True
+                        
+                        # Add vignette effect - darken the cell background slightly
+                        self.apply_vignette()
+                        
+                        # Position button container at final position
+                        self.button_container.place(relx=0.5, rely=0.70, anchor="center")
+                        
+                        # Pack buttons horizontally with spacing
+                        for i, btn_frame in enumerate([self.edit_btn, self.copy_btn, self.paste_btn, self.delete_btn]):
+                            if self.should_show_button(i):
+                                btn_frame.pack(side="left", padx=2)
+                        
+                        # Ensure button container is on top
+                        self.button_container.lift()
+                    
+                    def hide_buttons(self):
+                        """Hide buttons with instant pop-out effect and remove vignette"""
+                        if not self.menu_visible:
+                            return
+                        
+                        self.menu_visible = False
+                        
+                        # Remove vignette effect - restore original background
+                        self.remove_vignette()
+                        
+                        # Hide button container immediately
+                        try:
+                            self.button_container.place_forget()
+                            # Unpack all buttons
+                            for btn_frame in [self.edit_btn, self.copy_btn, self.paste_btn, self.delete_btn]:
+                                btn_frame.pack_forget()
+                        except:
+                            pass
+                    
+                    def apply_vignette(self):
+                        """Apply vignette effect to highlight the active cell"""
+                        try:
+                            # Store original colors if not already stored
+                            if not hasattr(self, 'original_colors'):
+                                self.original_colors = {}
+                                for widget in self.widgets_to_tint:
+                                    try:
+                                        self.original_colors[widget] = widget.cget('bg')
+                                    except:
+                                        pass
+                            
+                            # Apply darker background to create vignette effect
+                            for widget in self.widgets_to_tint:
                                 try:
-                                    icon.configure(font=icon_font)
+                                    original_color = self.original_colors.get(widget, "#F5F5F5")
+                                    # Darken the color by reducing RGB values
+                                    darkened_color = self.darken_color(original_color, 0.15)
+                                    widget.configure(bg=darkened_color)
                                 except:
                                     pass
-                            
-                            # Re-position icons if they're currently visible
-                            if self.hover_active:
-                                # Small delay to ensure widgets are updated, then reposition
-                                self.master.after(10, self.reposition_icons)
+                        except:
+                            pass
                     
-                    def reposition_icons(self):
-                        """Reposition icons after resize to maintain proper hit areas"""
-                        if self.hover_active:
-                            self.hide_icons()
-                            # Small delay then show again with updated positions
-                            self.master.after(5, self.show_icons)
+                    def remove_vignette(self):
+                        """Remove vignette effect and restore original colors"""
+                        try:
+                            if hasattr(self, 'original_colors'):
+                                for widget in self.widgets_to_tint:
+                                    try:
+                                        original_color = self.original_colors.get(widget, "#F5F5F5")
+                                        widget.configure(bg=original_color)
+                                    except:
+                                        pass
+                        except:
+                            pass
+                    
+                    def darken_color(self, color, factor):
+                        """Darken a color by the given factor (0.0 to 1.0)"""
+                        try:
+                            # Handle different color formats
+                            if color.startswith('#'):
+                                # Hex color
+                                r = int(color[1:3], 16)
+                                g = int(color[3:5], 16)
+                                b = int(color[5:7], 16)
+                            else:
+                                # Named color - convert to approximate RGB
+                                color_map = {
+                                    'white': (255, 255, 255),
+                                    'SystemButtonFace': (240, 240, 240),
+                                    'lightgray': (211, 211, 211),
+                                    'gray': (128, 128, 128)
+                                }
+                                r, g, b = color_map.get(color.lower(), (240, 240, 240))
+                            
+                            # Darken by reducing RGB values
+                            r = int(r * (1 - factor))
+                            g = int(g * (1 - factor))
+                            b = int(b * (1 - factor))
+                            
+                            return f"#{r:02x}{g:02x}{b:02x}"
+                        except:
+                            return "#E0E0E0"  # Fallback darkened color
+                    
+                    def should_show_button(self, button_index):
+                        """Determine which buttons to show based on shifts"""
+                        has_shifts = self.shifts and len(self.shifts) > 0
+                        has_copied_shifts = hasattr(self.parent_app, 'copied_shifts') and self.parent_app.copied_shifts
+                        
+                        if button_index == 0:  # Edit button - always show
+                            return True
+                        elif button_index == 1:  # Copy button - only if has shifts
+                            return has_shifts
+                        elif button_index == 2:  # Paste button - only if has copied shifts
+                            return has_copied_shifts
+                        elif button_index == 3:  # Delete button - only if has shifts
+                            return has_shifts
+                        return False
                     
                     def set_actions(self, day_str, shifts, parent_app):
-                        """Set up action bindings for all three icons"""
+                        """Set up action bindings for the new cell-click system"""
                         self.day_str = day_str
                         self.shifts = shifts
                         self.parent_app = parent_app
                         
-                        # Update icon sizes using parent app's font system
-                        self.update_icon_sizes(parent_app)
+                        # Set up button actions with event stopping
+                        edit_btn = self.edit_btn.winfo_children()[0]  # Get the actual button label
+                        copy_btn = self.copy_btn.winfo_children()[0]
+                        paste_btn = self.paste_btn.winfo_children()[0]
+                        delete_btn = self.delete_btn.winfo_children()[0]
                         
-                        # Edit icon - click to open day editor
-                        self.edit_label.bind("<Button-1>", lambda e: parent_app.open_day_editor(day_str))
+                        # Edit button - open day editor
+                        edit_btn.bind("<Button-1>", lambda e: self.handle_edit_action_with_stop(e))
                         
-                        # Copy icon - click and drag to copy shifts
-                        self.copy_label.bind("<Button-1>", self.start_copy_drag)
-                        self.copy_label.bind("<B1-Motion>", self.continue_copy_drag)
-                        self.copy_label.bind("<ButtonRelease-1>", self.end_copy_drag)
+                        # Copy button - start copy operation
+                        copy_btn.bind("<Button-1>", lambda e: self.handle_copy_action_with_stop(e))
                         
-                        # Delete icon - click to delete shifts with confirmation
-                        self.delete_label.bind("<Button-1>", self.delete_shifts)
+                        # Paste button - paste copied shifts
+                        paste_btn.bind("<Button-1>", lambda e: self.handle_paste_action_with_stop(e))
+                        
+                        # Delete button - delete shifts with confirmation
+                        delete_btn.bind("<Button-1>", lambda e: self.handle_delete_action_with_stop(e))
                     
-                    def add_widget(self, widget):
-                        self.widgets_to_tint.append(widget)
-                        widget.bind("<Enter>", self.on_enter)
-                        widget.bind("<Leave>", self.on_leave)
+                    def handle_cell_click(self, event):
+                        """Handle clicking anywhere in the cell"""
+                        # Prevent rapid double-clicks from causing issues
+                        current_time = self.master.tk.call('clock', 'milliseconds')
+                        if hasattr(self, 'last_click_time') and (current_time - self.last_click_time) < 200:
+                            return
+                        self.last_click_time = current_time
+                        
+                        # First, hide UI from any other active cell
+                        if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
+                            CellMenuManager.active_manager.hide_menu()
+                        
+                        # Set this as the active manager
+                        CellMenuManager.active_manager = self
+                        
+                        # Toggle buttons for this cell
+                        if self.menu_visible:
+                            # Hide buttons if they're visible
+                            self.hide_menu()
+                            # Clear active manager when hiding
+                            if CellMenuManager.active_manager == self:
+                                CellMenuManager.active_manager = None
+                        else:
+                            # Show buttons if they're not visible
+                            self.show_menu()
                     
-                    def show_icons(self):
-                        """Show the action icons if hover is active with proper spacing"""
-                        if self.hover_active:
-                            # Determine which icons to show
-                            has_shifts = self.shifts and len(self.shifts) > 0
+                    def is_click_on_button(self, event):
+                        """Check if the click was on a button"""
+                        if not self.menu_visible:
+                            return False
+                        
+                        # Get click coordinates relative to the master widget
+                        try:
+                            # Convert click coordinates to master widget coordinates
+                            click_x = event.x_root - self.master.winfo_rootx()
+                            click_y = event.y_root - self.master.winfo_rooty()
                             
-                            if has_shifts:
-                                # Show all three icons with equal spacing
-                                self.edit_label.place(relx=0.2, rely=0.5, anchor="center")
-                                self.copy_label.place(relx=0.5, rely=0.5, anchor="center")
-                                self.delete_label.place(relx=0.8, rely=0.5, anchor="center")
-                            else:
-                                # Only show edit icon, centered
-                                self.edit_label.place(relx=0.5, rely=0.5, anchor="center")
+                            # Check if click is in button area
+                            return self.is_point_in_button_area(click_x, click_y)
+                        except:
+                            return False
+                    
+                    def is_point_in_button_area(self, x, y):
+                        """Check if a point is in the button area"""
+                        try:
+                            cell_width = self.master.winfo_width()
+                            cell_height = self.master.winfo_height()
                             
-                            # Lift all icons to top layer
-                            for icon in [self.edit_label, self.copy_label, self.delete_label]:
-                                icon.lift()
-                                
-                            # Add visual feedback on hover
-                            self.add_icon_hover_effects()
-                    
-                    def add_icon_hover_effects(self):
-                        """Add hover effects to make icons more interactive"""
-                        def on_icon_hover_enter(icon, original_bg):
-                            def handler(event):
-                                icon.configure(bg="#E6E6E6", relief="raised")
-                            return handler
-                        
-                        def on_icon_hover_leave(icon, original_bg):
-                            def handler(event):
-                                icon.configure(bg=original_bg, relief="flat")
-                            return handler
-                        
-                        # Add hover effects to each visible icon
-                        for icon in [self.edit_label, self.copy_label, self.delete_label]:
-                            if icon.winfo_viewable():
-                                original_bg = icon.cget("bg")
-                                # Remove old bindings to avoid duplicates
-                                icon.unbind("<Enter>")
-                                icon.unbind("<Leave>")
-                                # Add new hover bindings
-                                icon.bind("<Enter>", on_icon_hover_enter(icon, original_bg))
-                                icon.bind("<Leave>", on_icon_hover_leave(icon, original_bg))
-                                # Re-add the main hover bindings
-                                icon.bind("<Enter>", self.on_icon_enter, add="+")
-                                icon.bind("<Leave>", self.on_icon_leave, add="+")
+                            if cell_width <= 0 or cell_height <= 0:
+                                return False
                             
-                    def hide_icons(self):
-                        """Hide the action icons"""
-                        self.hover_active = False
-                        for icon in [self.edit_label, self.copy_label, self.delete_label]:
-                            icon.place_forget()
+                            # Calculate button area (same as mouse_over_buttons method)
+                            button_center_y = cell_height * 0.70
+                            button_area_height = 40
+                            
+                            button_area_x1 = cell_width * 0.2
+                            button_area_x2 = cell_width * 0.8
+                            button_area_y1 = button_center_y - button_area_height // 2
+                            button_area_y2 = button_center_y + button_area_height // 2
+                            
+                            return (button_area_x1 <= x <= button_area_x2 and 
+                                   button_area_y1 <= y <= button_area_y2)
+                        except:
+                            return False
                     
-                    def on_icon_enter(self, event=None):
-                        """Handle mouse entering any icon"""
-                        self.mouse_inside = True
-                        # Keep the icons visible
-                        self.hover_active = True
-                        self.show_icons()
+                    def handle_edit_action(self):
+                        """Handle edit button click"""
+                        self.parent_app.open_day_editor(self.day_str)
+                        self.hide_menu()  # Hide buttons after action
+                        # Clear active manager after action
+                        if CellMenuManager.active_manager == self:
+                            CellMenuManager.active_manager = None
                     
-                    def on_icon_leave(self, event=None):
-                        """Handle mouse leaving any icon"""
-                        self.mouse_inside = False
-                        # Small delay to check if we're still in the cell
-                        self.master.after(50, self.check_hide_icons)
-                    
-                    def check_hide_icons(self):
-                        """Check if we should hide the icons"""
-                        if not self.mouse_inside and not self.hover_active:
-                            self.hide_icons()
-                    
-                    def on_enter(self, event=None):
-                        """Handle mouse entering the cell or its widgets"""
-                        self.hover_active = True
-                        self.show_icons()
-                    
-                    def on_leave(self, event=None):
-                        """Handle mouse leaving the cell or its widgets"""
-                        self.hover_active = False
-                        # Small delay to check if we're still in the icons
-                        self.master.after(50, self.check_hide_icons)
-                    
-                    def start_copy_drag(self, event):
-                        """Start copying shifts via drag operation"""
+                    def handle_copy_action(self, event):
+                        """Handle copy button click"""
                         if self.shifts and len(self.shifts) > 0:
-                            self.parent_app.start_ctrl_drag(event, self.day_str, self.shifts, self.copy_label)
+                            # Start copy operation (simplified for now)
+                            self.parent_app.copy_day_shifts(self.day_str, self.shifts)
+                            self.hide_menu()  # Hide buttons after action
+                            # Clear active manager after action
+                            if CellMenuManager.active_manager == self:
+                                CellMenuManager.active_manager = None
                     
-                    def continue_copy_drag(self, event):
-                        """Continue copy drag operation"""
-                        if self.parent_app.ctrl_drag_data["active"]:
-                            self.parent_app.continue_ctrl_drag(event)
+                    def handle_paste_action(self):
+                        """Handle paste button click"""
+                        if hasattr(self.parent_app, 'copied_shifts') and self.parent_app.copied_shifts:
+                            self.parent_app.paste_day_shifts(self.day_str)
+                            self.hide_menu()  # Hide buttons after action
+                            # Clear active manager after action
+                            if CellMenuManager.active_manager == self:
+                                CellMenuManager.active_manager = None
                     
-                    def end_copy_drag(self, event):
-                        """End copy drag operation"""
-                        if self.parent_app.ctrl_drag_data["active"]:
-                            self.parent_app.end_ctrl_drag(event)
-                    
-                    def delete_shifts(self, event):
-                        """Delete all shifts for this day with confirmation"""
+                    def handle_delete_action(self):
+                        """Handle delete button click with confirmation"""
                         if not self.shifts or len(self.shifts) == 0:
+                            self.hide_menu()  # Hide buttons even if no shifts
+                            # Clear active manager
+                            if CellMenuManager.active_manager == self:
+                                CellMenuManager.active_manager = None
                             return
                         
                         # Show confirmation dialog
@@ -2224,10 +4423,184 @@ Brought to you by WILLSTER"""
                         
                         if result:
                             self.parent_app.delete_day_shifts(self.day_str)
+                        
+                        self.hide_menu()  # Hide buttons after action
+                        # Clear active manager after action
+                        if CellMenuManager.active_manager == self:
+                            CellMenuManager.active_manager = None
+                    
+                    # New action methods that stop event propagation
+                    def handle_edit_action_with_stop(self, event):
+                        """Handle edit button click and stop event propagation"""
+                        event.stopPropagation() if hasattr(event, 'stopPropagation') else None
+                        self.handle_edit_action()
+                        return "break"  # Tkinter way to stop event propagation
+                    
+                    def handle_copy_action_with_stop(self, event):
+                        """Handle copy button click and stop event propagation"""
+                        event.stopPropagation() if hasattr(event, 'stopPropagation') else None
+                        self.handle_copy_action(event)
+                        return "break"
+                    
+                    def handle_paste_action_with_stop(self, event):
+                        """Handle paste button click and stop event propagation"""
+                        event.stopPropagation() if hasattr(event, 'stopPropagation') else None
+                        self.handle_paste_action()
+                        return "break"
+                    
+                    def handle_delete_action_with_stop(self, event):
+                        """Handle delete button click and stop event propagation"""
+                        event.stopPropagation() if hasattr(event, 'stopPropagation') else None
+                        self.handle_delete_action()
+                        return "break"
+                    
+                    def add_widget(self, widget):
+                        """Add widget to click tracking"""
+                        self.widgets_to_tint.append(widget)
+                        # Bind click events to the widget
+                        widget.bind("<Button-1>", self.handle_cell_click)
+                    
+                    def on_mouse_motion(self, event=None):
+                        """Handle mouse motion for continuous tracking"""
+                        current_time = self.master.tk.call('clock', 'milliseconds')
+                        
+                        # Throttle motion events to avoid performance issues
+                        if current_time - self.last_mouse_check < 50:  # 50ms throttle
+                            return
+                        
+                        self.last_mouse_check = current_time
+                        
+                        # Check if we should show/hide UI elements based on current position
+                        mouse_over_cell = self.is_mouse_over_cell()
+                        
+                        if mouse_over_cell and not self.hover_active:
+                            # Hide trigger icon from previously active hover manager
+                            if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
+                                CellMenuManager.active_manager.hide_menu()
+                            
+                            # Set this as the active hover manager
+                            CellMenuManager.active_manager = self
+                            
+                            self.hover_active = True
+                            self.mouse_inside = True
+                            self.show_trigger_icon()
+                        elif not mouse_over_cell and self.hover_active and not self.mouse_over_buttons():
+                            self.hover_active = False
+                            self.mouse_inside = False
+                            self.master.after(50, self.check_hide_ui)
+                    
+                    def on_cell_enter(self, event=None):
+                        """Handle mouse entering the cell - show trigger icon"""
+                        # Force hide UI from previously active hover manager (including buttons)
+                        if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
+                            CellMenuManager.active_manager.hide_menu()
+                        
+                        # Set this as the active hover manager
+                        CellMenuManager.active_manager = self
+                        
+                        self.hover_active = True
+                        self.mouse_inside = True
+                        self.show_trigger_icon()
+                    
+                    def on_cell_leave(self, event=None):
+                        """Handle mouse leaving the cell - hide trigger icon and buttons"""
+                        self.hover_active = False
+                        self.mouse_inside = False
+                        # Shorter delay for more responsive behavior
+                        self.master.after(50, self.check_hide_ui)
+                    
+                    def ensure_clean_state(self):
+                        """Ensure UI is in a clean state before showing new elements"""
+                        # Hide buttons immediately if they're visible
+                        if self.menu_visible:
+                            self.menu_visible = False
+                            try:
+                                self.button_container.place_forget()
+                                for btn_frame in [self.edit_btn, self.copy_btn, self.paste_btn, self.delete_btn]:
+                                    btn_frame.pack_forget()
+                            except:
+                                pass
+                    
+                    def check_hide_ui(self):
+                        """Check if we should hide the UI elements with improved detection"""
+                        current_time = self.master.tk.call('clock', 'milliseconds')
+                        
+                        # Prevent excessive checking
+                        if current_time - self.last_mouse_check < self.mouse_check_interval:
+                            return
+                        
+                        self.last_mouse_check = current_time
+                        
+                        # Check if mouse is still over the cell or buttons
+                        mouse_over_cell = self.is_mouse_over_cell()
+                        mouse_over_buttons = self.mouse_over_buttons()
+                        
+                        if not mouse_over_cell and not mouse_over_buttons:
+                            self.hide_trigger_icon()
+                            if self.menu_visible:
+                                self.hide_menu()
+                        elif mouse_over_cell and not self.hover_active:
+                            # Mouse re-entered cell area
+                            self.hover_active = True
+                            self.show_trigger_icon()
+                    
+                    def is_mouse_over_cell(self):
+                        """Check if mouse is over the cell with improved accuracy"""
+                        try:
+                            # Get mouse position relative to master widget
+                            mouse_x = self.master.winfo_pointerx() - self.master.winfo_rootx()
+                            mouse_y = self.master.winfo_pointery() - self.master.winfo_rooty()
+                            
+                            # Get actual cell dimensions
+                            cell_width = self.master.winfo_width()
+                            cell_height = self.master.winfo_height()
+                            
+                            # Check if within cell bounds with small margin
+                            margin = 2
+                            return (0 - margin <= mouse_x <= cell_width + margin and 
+                                   0 - margin <= mouse_y <= cell_height + margin)
+                        except:
+                            return False
+                    
+                    def mouse_over_buttons(self):
+                        """Check if mouse is over the button area with improved accuracy"""
+                        try:
+                            # Only check if buttons are actually visible
+                            if not self.menu_visible:
+                                return False
+                                
+                            # Get mouse position relative to master widget
+                            mouse_x = self.master.winfo_pointerx() - self.master.winfo_rootx()
+                            mouse_y = self.master.winfo_pointery() - self.master.winfo_rooty()
+                            
+                            # Get actual cell dimensions
+                            cell_width = self.master.winfo_width()
+                            cell_height = self.master.winfo_height()
+                            
+                            # Check if cell dimensions are valid
+                            if cell_width <= 0 or cell_height <= 0:
+                                return False
+                            
+                            # Calculate button area based on actual positioning (70% from top)
+                            button_center_y = cell_height * 0.70
+                            button_area_height = 40  # More precise button area
+                            
+                            button_area_x1 = cell_width * 0.2   # More conservative horizontal area
+                            button_area_x2 = cell_width * 0.8
+                            button_area_y1 = button_center_y - button_area_height // 2
+                            button_area_y2 = button_center_y + button_area_height // 2
+                            
+                            return (button_area_x1 <= mouse_x <= button_area_x2 and 
+                                   button_area_y1 <= mouse_y <= button_area_y2)
+                        except:
+                            return False
                 
-                # Create and configure hover manager for this cell
-                hover_mgr = CellHoverManager(cell_frame)
-                hover_mgr.add_widget(cell_frame)
+                # Create and configure menu manager for this cell
+                hover_mgr = CellMenuManager(cell_frame)
+                
+                # Store reference to the class for global access (only once)
+                if not hasattr(self, '_temp_cell_menu_class'):
+                    self._temp_cell_menu_class = CellMenuManager
                 
                 # Store reference for font updates
                 cell_frame._hover_mgr = hover_mgr
@@ -2259,47 +4632,114 @@ Brought to you by WILLSTER"""
                 header_frame.grid(row=0, column=0, sticky="ew")
                 # Use pre-calculated day font
                 day_label = tk.Label(header_frame, text=str(day), anchor="nw", font=day_font, bg=bg_color)
-                day_label.pack(side="left", padx=4, pady=2)
+                day_label.pack(side="left", padx=1, pady=1)  # Minimal padding for tiny day numbers
                 
                 # Track day labels for font updates
                 self.day_labels.append(day_label)
                 
-                # Content frame (shifts)
-                content_frame = tk.Frame(cell_frame, bg=bg_color)
-                content_frame.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
-                
-                # Add frames to hover manager
-                hover_mgr.add_widget(header_frame)
-                hover_mgr.add_widget(content_frame)
-                hover_mgr.add_widget(day_label)
-                
-                # Get shifts
+                # Get shifts first to determine content frame type
                 month_key = f"{self.current_year}-{self.current_month:02d}"
                 shifts = self.data.get("schedule", {}).get(month_key, {}).get(day_str, [])
                 
-                # Add shifts with auto-height and responsive text
-                for s in shifts:
-                    shift_frame = tk.Frame(content_frame, bg=bg_color)
-                    shift_frame.pack(fill="x", expand=True, pady=1)
+                # Content frame (shifts) - no scrolling, show up to 15 shifts
+                content_frame = tk.Frame(cell_frame, bg=bg_color)
+                content_frame.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
+                
+                # Add shifts with dynamic font sizing and display limit
+                num_shifts = len(shifts)
+                max_display_shifts = 24  # Show up to 24 shifts in 2 columns (12 rows x 2)
+                
+                if num_shifts > 0:
+                    # Sort shifts by start time for better organization (proper time sorting)
+                    def get_sort_time(shift):
+                        try:
+                            # Parse the time string and convert to 24-hour format for proper sorting
+                            dt = datetime.strptime(shift['start'], TIME_FMT)
+                            return dt.hour * 60 + dt.minute  # Convert to minutes for easy comparison
+                        except ValueError:
+                            return 999999  # Put invalid times at the end
                     
-                    # Create label with pre-calculated shift font
-                    lbl = tk.Label(shift_frame, 
-                                 text=f"{s['employee']} ({format_time_simple(s['start'])}-{format_time_simple(s['end'])})", 
-                                 font=shift_font,
-                                 anchor="w", bg=bg_color)
-                    lbl.pack(fill="x", expand=True, padx=2)
+                    sorted_shifts = sorted(shifts, key=get_sort_time)
                     
-                    # Add to list of widgets to update during resize
-                    self.schedule_labels.append((lbl, 'shift'))  # Store label and its type
+                    # Use larger, more readable fonts for shifts - increased further for 2-column layout
+                    if num_shifts <= 4:
+                        # Large readable font for low density
+                        cell_shift_font = ("Segoe UI", 13)  # Was 11, now 13 (+2)
+                    elif num_shifts <= 8:
+                        # Medium-large readable font for medium density
+                        cell_shift_font = ("Segoe UI", 12)  # Was 10, now 12 (+2)
+                    else:
+                        # Still very readable font for high density
+                        cell_shift_font = ("Segoe UI", 11)  # Was 9, now 11 (+2)
                     
-                    # Add shift widgets to hover manager
-                    hover_mgr.add_widget(shift_frame)
-                    hover_mgr.add_widget(lbl)
+                    # Display up to max_display_shifts in 2 columns
+                    shifts_to_show = sorted_shifts[:max_display_shifts]
+                    
+                    # Create shifts in pairs for 2-column layout
+                    for i in range(0, len(shifts_to_show), 2):
+                        row_frame = tk.Frame(content_frame, bg=bg_color)
+                        row_frame.pack(fill="x", pady=0)
+                        
+                        # Configure 2 equal columns
+                        row_frame.grid_columnconfigure(0, weight=1)
+                        row_frame.grid_columnconfigure(1, weight=1)
+                        
+                        # Left column shift
+                        left_shift = shifts_to_show[i]
+                        left_name = left_shift['employee']
+                        if len(left_name) > 12:  # Shorter for 2-column layout
+                            left_name = left_name[:9] + "..."
+                        left_text = f"{left_name} ({format_time_simple(left_shift['start'])}-{format_time_simple(left_shift['end'])})"
+                        
+                        left_label = tk.Label(row_frame, 
+                                            text=left_text, 
+                                            font=cell_shift_font,
+                                            anchor="w", bg=bg_color,
+                                            justify="left")
+                        left_label._custom_font_size = True
+                        left_label._dynamic_font = cell_shift_font
+                        left_label.grid(row=0, column=0, sticky="w", padx=(0, 2))
+                        self.schedule_labels.append((left_label, 'shift'))
+                        
+                        # Right column shift (if exists)
+                        if i + 1 < len(shifts_to_show):
+                            right_shift = shifts_to_show[i + 1]
+                            right_name = right_shift['employee']
+                            if len(right_name) > 12:  # Shorter for 2-column layout
+                                right_name = right_name[:9] + "..."
+                            right_text = f"{right_name} ({format_time_simple(right_shift['start'])}-{format_time_simple(right_shift['end'])})"
+                            
+                            right_label = tk.Label(row_frame, 
+                                                 text=right_text, 
+                                                 font=cell_shift_font,
+                                                 anchor="w", bg=bg_color,
+                                                 justify="left")
+                            right_label._custom_font_size = True
+                            right_label._dynamic_font = cell_shift_font
+                            right_label.grid(row=0, column=1, sticky="w", padx=(2, 0))
+                            self.schedule_labels.append((right_label, 'shift'))
+                    
+                    # If there are more shifts than we can display, show "+n more"
+                    if num_shifts > max_display_shifts:
+                        remaining_count = num_shifts - max_display_shifts
+                        more_frame = tk.Frame(content_frame, bg=bg_color)
+                        more_frame.pack(fill="x", pady=1)  # Minimal spacing for "+n more"
+                        
+                        # Create a more visually distinct "+n more" indicator
+                        more_label = tk.Label(more_frame, 
+                                            text=f"    +{remaining_count} more shifts...", 
+                                            font=("Segoe UI", cell_shift_font[1], "italic"),
+                                            anchor="w", bg=bg_color,
+                                            fg="#888")
+                        more_label.pack(fill="x", padx=0)  # No horizontal padding
+                        
+                        # Add to schedule labels for font updates
+                        self.schedule_labels.append((more_label, 'more'))
 
                 # No longer need cell-wide bindings - icons handle their own actions
                 
                 # Set up the three action icons (edit, copy, delete)
-                hover_mgr.set_actions(day_str, shifts, self)
+                hover_mgr.setup_cell_click(day_str, shifts, self)
 
     # Note: setup_cell_bindings method removed - icons now handle their own specific actions
 
@@ -2419,7 +4859,7 @@ Brought to you by WILLSTER"""
         return None
 
     def copy_shifts_to_day(self, shifts, target_day_str):
-        """Copy shifts from source to target day"""
+        """Copy shifts from source to target day with validation"""
         try:
             # Parse target date to get month info
             target_dt = datetime.strptime(target_day_str, DATE_FMT).date()
@@ -2442,11 +4882,13 @@ Brought to you by WILLSTER"""
             if target_day_str not in self.data["schedule"][month_key]:
                 self.data["schedule"][month_key][target_day_str] = []
             
-            # Copy shifts to target day
+            # Copy shifts to target day with validation
             target_shifts = self.data["schedule"][month_key][target_day_str]
             
-            # Check for duplicates before adding
             shifts_added = 0
+            conflicts_found = []
+            skipped_duplicates = 0
+            
             for shift in shifts:
                 # Check if this exact shift already exists
                 duplicate = False
@@ -2455,9 +4897,24 @@ Brought to you by WILLSTER"""
                         existing["start"] == shift["start"] and 
                         existing["end"] == shift["end"]):
                         duplicate = True
+                        skipped_duplicates += 1
                         break
                 
                 if not duplicate:
+                    # Validate the shift for the target day
+                    is_valid, shift_conflicts = self.validate_shift_scheduling(
+                        shift["employee"], target_day_str, 
+                        shift["start"], shift["end"], show_dialog=False)
+                    
+                    if not is_valid:
+                        # Collect conflicts for this shift
+                        conflicts_found.append({
+                            'employee': shift["employee"],
+                            'time': f"{shift['start']} - {shift['end']}",
+                            'conflicts': shift_conflicts
+                        })
+                    
+                    # Add the shift regardless of conflicts (user can decide what to do)
                     target_shifts.append(shift.copy())
                     shifts_added += 1
             
@@ -2466,14 +4923,89 @@ Brought to you by WILLSTER"""
                 save_data(self.data)
                 self.draw_calendar()
                 
-                messagebox.showinfo("Shifts Copied", 
-                                  f"Successfully copied {shifts_added} shift(s) to {target_day_str}.")
+                # Show results with any conflicts
+                if conflicts_found:
+                    conflict_message = f"✅ Successfully copied {shifts_added} shift(s) to {target_day_str}.\n\n"
+                    conflict_message += "⚠️ However, the following conflicts were detected:\n\n"
+                    
+                    for conflict in conflicts_found:
+                        conflict_message += f"• {conflict['employee']} ({conflict['time']}):\n"
+                        for issue in conflict['conflicts']:
+                            conflict_message += f"  - {issue}\n"
+                        conflict_message += "\n"
+                    
+                    conflict_message += "💡 You may want to review and adjust these shifts."
+                    messagebox.showwarning("Shifts Copied with Conflicts", conflict_message)
+                else:
+                    success_message = f"✅ Successfully copied {shifts_added} shift(s) to {target_day_str}."
+                    if skipped_duplicates > 0:
+                        success_message += f"\n\n📝 Skipped {skipped_duplicates} duplicate shift(s)."
+                    messagebox.showinfo("Shifts Copied", success_message)
             else:
-                messagebox.showinfo("No Changes", 
-                                  "All shifts already exist on the target day.")
+                if skipped_duplicates > 0:
+                    messagebox.showinfo("No Changes", 
+                                      f"All {skipped_duplicates} shift(s) already exist on the target day.")
+                else:
+                    messagebox.showinfo("No Changes", "No shifts were copied.")
         
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy shifts: {str(e)}")
+
+    def copy_day_shifts(self, day_str, shifts):
+        """Copy shifts to clipboard for later pasting"""
+        try:
+            # Store shifts in a temporary clipboard
+            self.copied_shifts = {
+                'source_day': day_str,
+                'shifts': shifts.copy()
+            }
+            
+            day_date = datetime.strptime(day_str, "%Y-%m-%d").strftime("%A, %B %d, %Y")
+            messagebox.showinfo("Shifts Copied", 
+                              f"Copied {len(shifts)} shift(s) from {day_date}.\n\n"
+                              f"Use the paste button on any day to add these shifts.")
+        except Exception as e:
+            messagebox.showerror("Copy Error", f"Failed to copy shifts: {str(e)}")
+
+    def paste_day_shifts(self, target_day_str):
+        """Paste copied shifts to the target day"""
+        try:
+            if not hasattr(self, 'copied_shifts') or not self.copied_shifts:
+                messagebox.showwarning("No Shifts Copied", "No shifts available to paste.")
+                return
+            
+            source_day = self.copied_shifts['source_day']
+            shifts_to_paste = self.copied_shifts['shifts']
+            
+            # Parse dates
+            target_dt = datetime.strptime(target_day_str, DATE_FMT).date()
+            source_dt = datetime.strptime(source_day, DATE_FMT).date()
+            
+            # Get month key for target
+            month_key = f"{target_dt.year}-{target_dt.month:02d}"
+            
+            # Ensure schedule structure exists
+            if "schedule" not in self.data:
+                self.data["schedule"] = {}
+            if month_key not in self.data["schedule"]:
+                self.data["schedule"][month_key] = {}
+            if target_day_str not in self.data["schedule"][month_key]:
+                self.data["schedule"][month_key][target_day_str] = []
+            
+            # Add shifts to target day
+            self.data["schedule"][month_key][target_day_str].extend(shifts_to_paste)
+            
+            # Save data and refresh calendar
+            save_data(self.data)
+            self.draw_calendar()
+            
+            target_date = target_dt.strftime("%A, %B %d, %Y")
+            source_date = source_dt.strftime("%A, %B %d, %Y")
+            messagebox.showinfo("Shifts Pasted", 
+                              f"Successfully pasted {len(shifts_to_paste)} shift(s) from {source_date} to {target_date}.")
+            
+        except Exception as e:
+            messagebox.showerror("Paste Error", f"Failed to paste shifts: {str(e)}")
 
     def delete_day_shifts(self, day_str):
         """Delete all shifts for a specific day"""
@@ -2761,90 +5293,17 @@ Brought to you by WILLSTER"""
             emp_name = emp_var.get()
             start = start_var.get()
             end = end_var.get()
-            month_key = f"{day_dt.year}-{day_dt.month:02d}"  # Define month_key at the start
             
             if not emp_name or not start or not end:
                 messagebox.showwarning("Missing", "Select employee, start, and end times.")
                 return
-            # Ensure end is after start
-            try:
-                s_dt = datetime.strptime(start, TIME_FMT)
-                e_dt = datetime.strptime(end, TIME_FMT)
-                if e_dt <= s_dt:
-                    messagebox.showerror("Invalid", "End time must be after start time.")
-                    return
-            except Exception:
-                messagebox.showerror("Invalid", "Time parse error.")
-                return
-
-            # validation: employee availability + requested days off
-            emp_data = self.find_employee_by_display(emp_name)
-            if not emp_data:
-                messagebox.showerror("Missing", "Selected employee not found.")
-                return
             
-            # Collect all conflicts
-            conflicts = []
+            # Use comprehensive validation
+            is_valid, conflicts = self.validate_shift_scheduling(
+                emp_name, day_str, start, end, show_dialog=True)
             
-            # Check requested days off (support both structured and legacy formats)
-            rd_list = emp_data.get("requested_days_off", [])
-            for req in rd_list:
-                if isinstance(req, dict):
-                    rtype = req.get("type")
-                    rdate = req.get("date")
-                    if rdate != day_str:
-                        continue
-                    if rtype == "full":
-                        conflicts.append(f"{emp_name} requested this day off")
-                    elif rtype == "partial":
-                        times = req.get("times", "")
-                        parts = [p.strip() for p in times.split("-")]
-                        if len(parts) == 2:
-                            try:
-                                r_start = datetime.strptime(parts[0], TIME_FMT)
-                                r_end = datetime.strptime(parts[1], TIME_FMT)
-                                if not (e_dt <= r_start or s_dt >= r_end):
-                                    conflicts.append(f"Requested partial day off ({parts[0]} - {parts[1]})")
-                            except Exception:
-                                # if malformed, just report requested day
-                                conflicts.append(f"{emp_name} requested this day off")
-                else:
-                    # legacy string
-                    if req == day_str:
-                        conflicts.append(f"{emp_name} requested this day off")
-                
-            # Check day availability
-            availability = emp_data.get("availability", {}).get(day_name, ["off"])
-            if availability == ["off"]:
-                conflicts.append(f"{emp_name} is not available on {day_name.capitalize()}s")
-            else:
-                # availability should be [start, end]
-                try:
-                    avail_start = datetime.strptime(availability[0], TIME_FMT)
-                    avail_end = datetime.strptime(availability[1], TIME_FMT)
-                    if s_dt < avail_start:
-                        conflicts.append(f"Shift starts at {start} but {emp_name} is only available from {availability[0]}")
-                    if e_dt > avail_end:
-                        conflicts.append(f"Shift ends at {end} but {emp_name} is only available until {availability[1]}")
-                except Exception:
-                    messagebox.showerror("Invalid", f"{emp_name}'s availability data is malformed for {day_name}.")
-                    return
-                    
-            # Check for overlap with existing shifts
-            shifts = self.data.get("schedule", {}).get(month_key, {}).get(day_str, [])
-            for shift in shifts:
-                if shift["employee"] == emp_name:
-                    shift_start = datetime.strptime(shift["start"], TIME_FMT)
-                    shift_end = datetime.strptime(shift["end"], TIME_FMT)
-                    if not (e_dt <= shift_start or s_dt >= shift_end):
-                        conflicts.append(f"Overlaps with existing shift ({shift['start']} - {shift['end']})")
-                        
-            if conflicts:
-                message = "The following conflicts were found:\n\n"
-                message += "\n".join(f"• {conflict}" for conflict in conflicts)
-                message += "\n\nDo you want to schedule this shift anyway?"
-                if not messagebox.askyesno("Scheduling Conflicts", message):
-                    return
+            if not is_valid:
+                return  # User chose not to proceed or validation failed
 
             # All checks passed -> add shift
             month_key = f"{day_dt.year}-{day_dt.month:02d}"
@@ -3217,57 +5676,6 @@ Brought to you by WILLSTER"""
         
         check_for_updates(update_callback)
 
-def show_splash_screen(root):
-    """Display a simple fade-in splash screen."""
-    # Create splash window
-    splash = tk.Toplevel()
-    splash.overrideredirect(True)  # Remove window decorations
-    
-    # Set size and center on screen
-    width = 400
-    height = 200
-    screen_width = splash.winfo_screenwidth()
-    screen_height = splash.winfo_screenheight()
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
-    splash.geometry(f"{width}x{height}+{x}+{y}")
-    splash.configure(bg="#49D3E6")
-    
-    # Create title label
-    title_label = tk.Label(splash, text="Work Scheduler", 
-                           font=("Arial", 32, "bold"), 
-                           bg="#49D3E6", fg="white")
-    title_label.pack(expand=True, pady=(60, 10))
-    
-    # Create subtitle label
-    subtitle_label = tk.Label(splash, text="Brought to you by WILLSTER",
-                             font=("Arial", 13),
-                             bg="#49D3E6", fg="white")
-    subtitle_label.pack(pady=(0, 20))
-    
-    # Fade in effect
-    splash.attributes("-alpha", 0.0)
-    alpha = [0.0]
-    
-    def fade_in():
-        if alpha[0] < 1.0:
-            alpha[0] += 0.05
-            splash.attributes("-alpha", alpha[0])
-            splash.after(30, fade_in)
-        else:
-            splash.after(1500, fade_out)  # Show for 1.5 seconds
-    
-    def fade_out():
-        if alpha[0] > 0.0:
-            alpha[0] -= 0.05
-            splash.attributes("-alpha", alpha[0])
-            splash.after(30, fade_out)
-        else:
-            splash.destroy()
-            root.deiconify()
-    
-    fade_in()
-    splash.update()
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -3281,12 +5689,6 @@ if __name__ == "__main__":
     if "clam" in style.theme_names():
         style.theme_use("clam")
     
-    # Show splash screen first
-    show_splash_screen(root)
-    
-    # Create app after a delay
-    def create_app():
-        app = WorkSchedulerApp(root)
-    
-    root.after(100, create_app)
+    # Create app - splash screen will be handled by the app itself
+    app = WorkSchedulerApp(root)
     root.mainloop()
