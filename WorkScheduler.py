@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.1.0"  # Current version of the application
+APP_VERSION = "1.0.4"  # Current version of the application
 GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
@@ -2834,7 +2834,9 @@ Thank you for keeping your application up to date!"""
             self.update_other_ui_fonts(normal_font, header_font)
             
         except Exception as e:
-            print(f"Error updating UI sizes: {e}")  # For debugging
+            # DEBUG: UI size update error
+            # print(f"Error updating UI sizes: {e}")  # For debugging
+            pass
     
     def update_calendar_fonts(self, header_font, normal_font, shift_font, icon_font):
         """Update calendar fonts without recreating the calendar"""
@@ -3688,9 +3690,9 @@ Thank you for keeping your application up to date!"""
                         """Create clean, responsive menu buttons"""
                         button_configs = [
                             ("✎", "#4A90E2", "Edit shifts for this day", self.edit_action),
-                            ("📋", "#50C878", "Copy all shifts from this day", self.copy_action),
-                            ("📄", "#FF8C42", "Paste copied shifts to this day", self.paste_action),
-                            ("🗑", "#FF6B6B", "Delete all shifts from this day", self.delete_action)
+                            ("📋", "#50C878", "Copy all shifts from this day", self.handle_copy_action),
+                            ("📄", "#FF8C42", "Paste copied shifts to this day", self.handle_paste_action),
+                            ("🗑", "#FF6B6B", "Delete all shifts from this day", self.handle_delete_action)
                         ]
                         
                         for i, (icon, color, tooltip, action) in enumerate(button_configs):
@@ -3764,7 +3766,9 @@ Thank you for keeping your application up to date!"""
                             # Auto-hide after 4 seconds
                             tooltip.after(4000, lambda: tooltip.destroy() if tooltip.winfo_exists() else None)
                         except Exception as e:
-                            print(f"Tooltip error: {e}")  # Debug output
+                            # DEBUG: Tooltip error
+                            # print(f"Tooltip error: {e}")  # Debug output
+                            pass
                     
                     def hide_tooltip(self, widget, event):
                         """Hide tooltip and clean up"""
@@ -3811,6 +3815,10 @@ Thank you for keeping your application up to date!"""
                     
                     def show_menu(self):
                         """Show menu in center of cell"""
+                        # DEBUG: Menu display debugging
+                        # print(f"\n📱 SHOW_MENU called for day: {self.day_str}")
+                        # print(f"📊 Menu shifts available: {len(self.shifts) if self.shifts else 0}")
+                        
                         if CellMenuManager.active_manager and CellMenuManager.active_manager != self:
                             CellMenuManager.active_manager.hide_menu()
                         
@@ -3823,12 +3831,24 @@ Thank you for keeping your application up to date!"""
                         # Position menu in center of cell
                         self.position_menu()
                         self.menu_frame.tkraise()
+                        
+                        # DEBUG: Menu confirmation
+                        # print(f"✅ Menu shown for {self.day_str}")
                     
                     def hide_menu(self):
                         """Hide menu and restore cell appearance"""
+                        # DEBUG: Menu hiding debugging
+                        # print(f"\n📱 HIDE_MENU called for day: {self.day_str}")
+                        
                         if self.menu_visible:
                             self.menu_visible = False
-                            self.menu_frame.place_forget()
+                            # Safety check: only hide menu if it still exists
+                            try:
+                                if self.menu_frame and self.menu_frame.winfo_exists():
+                                    self.menu_frame.place_forget()
+                            except tk.TclError:
+                                # Menu frame was already destroyed, ignore the error
+                                pass
                             self.remove_vignette()
                             
                             if CellMenuManager.active_manager == self:
@@ -3858,7 +3878,12 @@ Thank you for keeping your application up to date!"""
                     
                     def remove_vignette(self):
                         """Remove vignette effect"""
-                        self.master.configure(bg=self.original_bg)
+                        try:
+                            if self.master and self.master.winfo_exists():
+                                self.master.configure(bg=self.original_bg)
+                        except tk.TclError:
+                            # Master widget was already destroyed, ignore the error
+                            pass
                     
                     def darken_color(self, color):
                         """Darken a color by 20%"""
@@ -3930,51 +3955,6 @@ Thank you for keeping your application up to date!"""
                         if self.parent_app:
                             self.parent_app.open_day_editor_dialog(self.day_str, self.shifts)
                     
-                    def copy_action(self):
-                        """Handle copy action"""
-                        self.hide_menu()
-                        if self.parent_app:
-                            self.parent_app.copied_shifts = self.shifts[:]
-                            print(f"Copied {len(self.shifts)} shifts")
-                    
-                    def paste_action(self):
-                        """Handle paste action"""
-                        self.hide_menu()
-                        if self.parent_app and hasattr(self.parent_app, 'copied_shifts'):
-                            for shift in self.parent_app.copied_shifts:
-                                if shift not in self.shifts:
-                                    self.shifts.append(shift)
-                            self.parent_app.draw_calendar()
-                            print(f"Pasted {len(self.parent_app.copied_shifts)} shifts")
-                    
-                    def delete_action(self):
-                        """Handle delete action"""
-                        self.hide_menu()
-                        if self.shifts:
-                            self.shifts.clear()
-                            if self.parent_app:
-                                self.parent_app.draw_calendar()
-                            print("Cleared all shifts for this day")
-                        
-                        # Hide buttons initially
-                        self.button_container.place_forget()
-                        
-                        self.widgets_to_tint = []
-                        
-                        # Store day_str and shifts for actions
-                        self.day_str = None
-                        self.shifts = None
-                        self.parent_app = None
-                        
-                        # Bind window resize events to update hover detection
-                        self.master.bind("<Configure>", self.on_cell_resize, add="+")
-                        
-                        # Track mouse position more accurately
-                        self.last_mouse_check = 0
-                        self.mouse_check_interval = 100  # ms
-                        self.continuous_tracking = False
-                        self.tracking_timer = None
-                        
                     def create_modern_bubble_button(self, icon, primary_color, hover_color, tooltip):
                         """Create a modern bubble-style button with smooth hover effects"""
                         btn_frame = tk.Frame(self.button_container, bg=self.button_container.cget('bg'))
@@ -4053,7 +4033,9 @@ Thank you for keeping your application up to date!"""
                             # Auto-hide after 4 seconds
                             tooltip.after(4000, lambda: tooltip.destroy() if tooltip.winfo_exists() else None)
                         except Exception as e:
-                            print(f"Tooltip error: {e}")  # Debug output
+                            # DEBUG: Tooltip error
+                            # print(f"Tooltip error: {e}")  # Debug output
+                            pass
                     
                     def hide_bubble_tooltip(self, widget, event):
                         """Hide tooltip and clean up"""
@@ -4287,9 +4269,19 @@ Thank you for keeping your application up to date!"""
                     
                     def set_actions(self, day_str, shifts, parent_app):
                         """Set up action bindings for the new cell-click system"""
+                        # DEBUG: Action setup debugging
+                        # print(f"\n🔧 SET_ACTIONS called for day: {day_str}")
+                        # print(f"📊 Shifts provided: {len(shifts) if shifts else 0}")
+                        # if shifts:
+                        #     for i, shift in enumerate(shifts):
+                        #         print(f"   Shift {i+1}: {shift.get('employee', 'Unknown')} - {shift.get('start', '?')} to {shift.get('end', '?')}")
+                        
                         self.day_str = day_str
                         self.shifts = shifts
                         self.parent_app = parent_app
+                        
+                        # DEBUG: Action confirmation
+                        # print(f"✅ Actions set for {day_str} with {len(self.shifts) if self.shifts else 0} shifts")
                         
                         # Set up button actions with event stopping
                         edit_btn = self.edit_btn.winfo_children()[0]  # Get the actual button label
@@ -4382,24 +4374,51 @@ Thank you for keeping your application up to date!"""
                         if CellMenuManager.active_manager == self:
                             CellMenuManager.active_manager = None
                     
-                    def handle_copy_action(self, event):
+                    def handle_copy_action(self):
                         """Handle copy button click"""
+                        # DEBUG: Copy action debugging
+                        # print(f"\n🖱️  COPY BUTTON CLICKED for day: {self.day_str}")
+                        # print(f"📊 Available shifts: {len(self.shifts) if self.shifts else 0}")
+                        
                         if self.shifts and len(self.shifts) > 0:
+                            # DEBUG: Copy operation start
+                            # print(f"📋 Calling copy_day_shifts with {len(self.shifts)} shifts")
                             # Start copy operation (simplified for now)
                             self.parent_app.copy_day_shifts(self.day_str, self.shifts)
                             self.hide_menu()  # Hide buttons after action
                             # Clear active manager after action
                             if CellMenuManager.active_manager == self:
                                 CellMenuManager.active_manager = None
+                        else:
+                            # DEBUG: No shifts available
+                            # print(f"❌ No shifts to copy")
+                            pass
                     
                     def handle_paste_action(self):
                         """Handle paste button click"""
-                        if hasattr(self.parent_app, 'copied_shifts') and self.parent_app.copied_shifts:
-                            self.parent_app.paste_day_shifts(self.day_str)
-                            self.hide_menu()  # Hide buttons after action
-                            # Clear active manager after action
-                            if CellMenuManager.active_manager == self:
-                                CellMenuManager.active_manager = None
+                        # DEBUG: Paste action debugging
+                        # print(f"\n🖱️  PASTE BUTTON CLICKED for day: {self.day_str}")
+                        
+                        if hasattr(self.parent_app, 'copied_shifts'):
+                            # DEBUG: Found copied shifts
+                            # print(f"📋 Found copied_shifts attribute: {self.parent_app.copied_shifts}")
+                            if self.parent_app.copied_shifts:
+                                # DEBUG: Starting paste operation
+                                # print(f"📥 Calling paste_day_shifts")
+                                # Hide menu BEFORE calling paste to prevent widget destruction issues
+                                self.hide_menu()
+                                # Clear active manager after action
+                                if CellMenuManager.active_manager == self:
+                                    CellMenuManager.active_manager = None
+                                self.parent_app.paste_day_shifts(self.day_str)
+                            else:
+                                # DEBUG: No shifts to paste
+                                # print(f"❌ copied_shifts is empty")
+                                pass
+                        else:
+                            # DEBUG: No copied shifts attribute
+                            # print(f"❌ No copied_shifts attribute found")
+                            pass
                     
                     def handle_delete_action(self):
                         """Handle delete button click with confirmation"""
@@ -4439,7 +4458,7 @@ Thank you for keeping your application up to date!"""
                     def handle_copy_action_with_stop(self, event):
                         """Handle copy button click and stop event propagation"""
                         event.stopPropagation() if hasattr(event, 'stopPropagation') else None
-                        self.handle_copy_action(event)
+                        self.handle_copy_action()
                         return "break"
                     
                     def handle_paste_action_with_stop(self, event):
@@ -4954,58 +4973,334 @@ Thank you for keeping your application up to date!"""
     def copy_day_shifts(self, day_str, shifts):
         """Copy shifts to clipboard for later pasting"""
         try:
+            # DEBUG: Copy operation debugging
+            # print(f"\n🔍 COPY DEBUG: Starting copy operation")
+            # print(f"📅 Source day: {day_str}")
+            # print(f"📋 Number of shifts to copy: {len(shifts)}")
+            
+            # DEBUG: Print each shift being copied
+            # for i, shift in enumerate(shifts):
+            #     print(f"   Shift {i+1}: {shift.get('employee', 'Unknown')} - {shift.get('start', '?')} to {shift.get('end', '?')}")
+            
             # Store shifts in a temporary clipboard
             self.copied_shifts = {
                 'source_day': day_str,
                 'shifts': shifts.copy()
             }
             
+            # DEBUG: Copy confirmation
+            # print(f"💾 Copied shifts stored in self.copied_shifts")
+            # print(f"📝 Copied data: {self.copied_shifts}")
+            
             day_date = datetime.strptime(day_str, "%Y-%m-%d").strftime("%A, %B %d, %Y")
             messagebox.showinfo("Shifts Copied", 
                               f"Copied {len(shifts)} shift(s) from {day_date}.\n\n"
                               f"Use the paste button on any day to add these shifts.")
+            
+            # DEBUG: Copy success
+            # print(f"✅ COPY DEBUG: Copy operation completed successfully\n")
+            
         except Exception as e:
+            # DEBUG: Copy error
+            # print(f"❌ COPY DEBUG: Error during copy - {str(e)}")
             messagebox.showerror("Copy Error", f"Failed to copy shifts: {str(e)}")
 
     def paste_day_shifts(self, target_day_str):
-        """Paste copied shifts to the target day"""
+        """Paste copied shifts to the target day with conflict detection"""
         try:
-            if not hasattr(self, 'copied_shifts') or not self.copied_shifts:
+            # DEBUG: Paste operation debugging
+            # print(f"\n🔍 PASTE DEBUG: Starting paste operation")
+            # print(f"📅 Target day: {target_day_str}")
+            
+            # Check if we have copied shifts
+            if not hasattr(self, 'copied_shifts'):
+                # DEBUG: No copied shifts attribute
+                # print(f"❌ PASTE DEBUG: No 'copied_shifts' attribute found")
                 messagebox.showwarning("No Shifts Copied", "No shifts available to paste.")
                 return
             
+            if not self.copied_shifts:
+                # DEBUG: Empty copied shifts
+                # print(f"❌ PASTE DEBUG: 'copied_shifts' is empty or None")
+                messagebox.showwarning("No Shifts Copied", "No shifts available to paste.")
+                return
+            
+            # DEBUG: Found copied shifts
+            # print(f"📋 Found copied shifts: {self.copied_shifts}")
+            
             source_day = self.copied_shifts['source_day']
             shifts_to_paste = self.copied_shifts['shifts']
+            
+            # DEBUG: Paste operation details
+            # print(f"📤 Source day: {source_day}")
+            # print(f"📥 Shifts to paste: {len(shifts_to_paste)}")
+            
+            # DEBUG: Print each shift being pasted
+            # for i, shift in enumerate(shifts_to_paste):
+            #     print(f"   Pasting Shift {i+1}: {shift.get('employee', 'Unknown')} - {shift.get('start', '?')} to {shift.get('end', '?')}")
             
             # Parse dates
             target_dt = datetime.strptime(target_day_str, DATE_FMT).date()
             source_dt = datetime.strptime(source_day, DATE_FMT).date()
             
+            # Check for conflicts before pasting
+            # DEBUG: Conflict analysis
+            # print(f"🔍 Analyzing shifts for conflicts...")
+            conflicting_shifts = []
+            non_conflicting_shifts = []
+            
+            for shift in shifts_to_paste:
+                # DEBUG: Individual shift checking
+                # print(f"   🔍 Checking shift: {shift.get('employee', 'Unknown')} - {shift.get('start', '?')} to {shift.get('end', '?')}")
+                
+                # Use the existing validation method to check for conflicts
+                is_valid, conflicts = self.validate_shift_scheduling(
+                    shift["employee"], target_day_str, 
+                    shift["start"], shift["end"], show_dialog=False)
+                
+                if not is_valid and conflicts:
+                    # DEBUG: Conflicts found
+                    # print(f"   ❌ Conflicts found: {conflicts}")
+                    conflicting_shifts.append({
+                        'shift': shift,
+                        'conflicts': conflicts
+                    })
+                else:
+                    # DEBUG: No conflicts
+                    # print(f"   ✅ No conflicts found")
+                    non_conflicting_shifts.append(shift)
+            
+            # If there are conflicts, show conflict resolution dialog
+            if conflicting_shifts:
+                # DEBUG: Conflict resolution
+                # print(f"⚠️  Found {len(conflicting_shifts)} conflicting shifts")
+                user_choice = self.show_paste_conflict_dialog(
+                    target_day_str, conflicting_shifts, non_conflicting_shifts)
+                
+                if user_choice == "cancel":
+                    # DEBUG: User cancelled
+                    # print(f"❌ User cancelled paste operation")
+                    return
+                elif user_choice == "non_conflicting":
+                    shifts_to_paste = non_conflicting_shifts
+                    # DEBUG: Paste only non-conflicting
+                    # print(f"📝 Pasting only {len(shifts_to_paste)} non-conflicting shifts")
+                elif user_choice == "all":
+                    # Keep all shifts (conflicting + non-conflicting)
+                    # DEBUG: Paste all including conflicts
+                    # print(f"⚠️  User chose to paste all shifts including conflicts")
+                    pass
+            else:
+                # DEBUG: No conflicts found
+                # print(f"✅ No conflicts found, proceeding with all shifts")
+                pass
+            
+            # If no shifts to paste after conflict resolution, exit
+            if not shifts_to_paste:
+                # DEBUG: No shifts after resolution
+                # print(f"❌ No shifts to paste after conflict resolution")
+                messagebox.showinfo("No Shifts Pasted", "No shifts were pasted.")
+                return
+            
             # Get month key for target
             month_key = f"{target_dt.year}-{target_dt.month:02d}"
+            # DEBUG: Target month
+            # print(f"📆 Target month key: {month_key}")
             
             # Ensure schedule structure exists
             if "schedule" not in self.data:
+                # DEBUG: Creating schedule structure
+                # print(f"🏗️  Creating 'schedule' structure in data")
                 self.data["schedule"] = {}
             if month_key not in self.data["schedule"]:
+                # DEBUG: Creating month
+                # print(f"🏗️  Creating month '{month_key}' in schedule")
                 self.data["schedule"][month_key] = {}
             if target_day_str not in self.data["schedule"][month_key]:
+                # DEBUG: Creating day
+                # print(f"🏗️  Creating day '{target_day_str}' in month")
                 self.data["schedule"][month_key][target_day_str] = []
             
+            # Show existing shifts before pasting
+            existing_shifts = self.data["schedule"][month_key][target_day_str]
+            # DEBUG: Existing shifts
+            # print(f"📋 Existing shifts on target day: {len(existing_shifts)}")
+            # for i, shift in enumerate(existing_shifts):
+            #     print(f"   Existing Shift {i+1}: {shift.get('employee', 'Unknown')} - {shift.get('start', '?')} to {shift.get('end', '?')}")
+            
             # Add shifts to target day
+            # DEBUG: Adding shifts
+            # print(f"➕ Adding {len(shifts_to_paste)} shifts to target day")
             self.data["schedule"][month_key][target_day_str].extend(shifts_to_paste)
             
+            # Show final shifts after pasting
+            final_shifts = self.data["schedule"][month_key][target_day_str]
+            # DEBUG: Final shifts
+            # print(f"📋 Final shifts on target day: {len(final_shifts)}")
+            # for i, shift in enumerate(final_shifts):
+            #     print(f"   Final Shift {i+1}: {shift.get('employee', 'Unknown')} - {shift.get('start', '?')} to {shift.get('end', '?')}")
+            
             # Save data and refresh calendar
+            # DEBUG: Save and refresh
+            # print(f"💾 Saving data to file")
             save_data(self.data)
+            # print(f"🔄 Refreshing calendar display")
             self.draw_calendar()
             
+            # Show success message
             target_date = target_dt.strftime("%A, %B %d, %Y")
             source_date = source_dt.strftime("%A, %B %d, %Y")
-            messagebox.showinfo("Shifts Pasted", 
-                              f"Successfully pasted {len(shifts_to_paste)} shift(s) from {source_date} to {target_date}.")
+            
+            if len(conflicting_shifts) > 0:
+                skipped_count = len(self.copied_shifts['shifts']) - len(shifts_to_paste)
+                success_msg = f"Successfully pasted {len(shifts_to_paste)} shift(s) from {source_date} to {target_date}."
+                if skipped_count > 0:
+                    success_msg += f"\n\n⚠️ {skipped_count} conflicting shift(s) were skipped."
+                messagebox.showinfo("Shifts Pasted", success_msg)
+            else:
+                messagebox.showinfo("Shifts Pasted", 
+                                  f"Successfully pasted {len(shifts_to_paste)} shift(s) from {source_date} to {target_date}.")
+            
+            # DEBUG: Paste success
+            # print(f"✅ PASTE DEBUG: Paste operation completed successfully\n")
             
         except Exception as e:
+            # DEBUG: Paste error
+            # print(f"❌ PASTE DEBUG: Error during paste - {str(e)}")
+            # import traceback
+            # print(f"📊 Full traceback: {traceback.format_exc()}")
             messagebox.showerror("Paste Error", f"Failed to paste shifts: {str(e)}")
+
+    def show_paste_conflict_dialog(self, target_day_str, conflicting_shifts, non_conflicting_shifts):
+        """Show dialog for resolving paste conflicts"""
+        
+        # Create the dialog window
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Shift Conflicts Detected")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center the dialog
+        self.center_dialog(dialog, 650, 500)
+        
+        # Result variable to store user choice
+        result = tk.StringVar(value="cancel")
+        
+        # Header frame
+        header_frame = tk.Frame(dialog, bg="#FF8C42", height=60)
+        header_frame.pack(fill="x")
+        header_frame.pack_propagate(False)
+        
+        header_container = tk.Frame(header_frame, bg="#FF8C42")
+        header_container.pack(expand=True, fill="both")
+        
+        tk.Label(header_container, text="⚠️ Scheduling Conflicts Detected", 
+                font=("Segoe UI", 16, "bold"), 
+                bg="#FF8C42", fg="white").pack(expand=True)
+        
+        # Main content frame
+        content_frame = tk.Frame(dialog, padx=20, pady=20)
+        content_frame.pack(fill="both", expand=True)
+        
+        # Target day info
+        target_date = datetime.strptime(target_day_str, DATE_FMT).strftime("%A, %B %d, %Y")
+        info_text = f"Conflicts found when pasting shifts to {target_date}:"
+        tk.Label(content_frame, text=info_text, font=("Segoe UI", 12, "bold"),
+                wraplength=600).pack(pady=(0, 15))
+        
+        # Scrollable frame for conflicts
+        canvas = tk.Canvas(content_frame, height=200)
+        scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Add conflicts to scrollable frame
+        for i, conflict_info in enumerate(conflicting_shifts):
+            shift = conflict_info['shift']
+            conflicts = conflict_info['conflicts']
+            
+            # Shift info frame
+            shift_frame = tk.Frame(scrollable_frame, relief="solid", bd=1, padx=10, pady=8)
+            shift_frame.pack(fill="x", pady=(0, 10))
+            
+            # Shift header
+            shift_header = f"❌ {shift['employee']} ({shift['start']} - {shift['end']})"
+            tk.Label(shift_frame, text=shift_header, font=("Segoe UI", 11, "bold"), 
+                    fg="#D32F2F", anchor="w").pack(fill="x")
+            
+            # Conflict details
+            for conflict in conflicts:
+                conflict_text = f"   • {conflict}"
+                tk.Label(shift_frame, text=conflict_text, font=("Segoe UI", 10), 
+                        fg="#666666", anchor="w", wraplength=550).pack(fill="x", padx=(10, 0))
+        
+        canvas.pack(side="left", fill="both", expand=True, pady=(0, 20))
+        scrollbar.pack(side="right", fill="y", pady=(0, 20))
+        
+        # Summary info
+        summary_frame = tk.Frame(content_frame)
+        summary_frame.pack(fill="x", pady=(10, 20))
+        
+        total_shifts = len(conflicting_shifts) + len(non_conflicting_shifts)
+        summary_text = (f"{len(conflicting_shifts)} conflicting shifts, ")        
+        tk.Label(summary_frame, text=summary_text, font=("Segoe UI", 10), 
+                fg="#666666", wraplength=600).pack()
+        
+        # Options frame
+        options_frame = tk.Frame(content_frame)
+        options_frame.pack(fill="x", pady=(10, 0))
+        
+        tk.Label(options_frame, text="Choose an option:", 
+                font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        
+        # Radio button options
+        options = [
+            ("cancel", "❌ Cancel paste", "#FF5722"),
+            ("non_conflicting", f"✅ Exclude", "#4CAF50"),
+            ("all", f"⚠️ Paste all", "#FF9800")
+        ]
+        
+        for value, text, color in options:
+            if value == "non_conflicting" and len(non_conflicting_shifts) == 0:
+                # Disable option if no non-conflicting shifts
+                rb = tk.Radiobutton(options_frame, text=text, variable=result, value=value,
+                                  font=("Segoe UI", 11), fg="#CCCCCC", state="disabled")
+            else:
+                rb = tk.Radiobutton(options_frame, text=text, variable=result, value=value,
+                                  font=("Segoe UI", 11), fg=color)
+            rb.pack(anchor="w", pady=2)
+        
+        # Button frame
+        button_frame = tk.Frame(content_frame)
+        button_frame.pack(fill="x", pady=(20, 0))
+        
+        def on_confirm():
+            dialog.destroy()
+        
+        def on_cancel():
+            result.set("cancel")
+            dialog.destroy()
+        
+        # Buttons
+        tk.Button(button_frame, text="Cancel", command=on_cancel, 
+                 font=("Segoe UI", 10), width=12).pack(side="right", padx=(10, 0))
+        
+        tk.Button(button_frame, text="Confirm", command=on_confirm, 
+                 font=("Segoe UI", 10, "bold"), width=12, 
+                 bg="#2196F3", fg="white").pack(side="right")
+        
+        # Wait for dialog to close
+        dialog.wait_window()
+        
+        return result.get()
 
     def delete_day_shifts(self, day_str):
         """Delete all shifts for a specific day"""
