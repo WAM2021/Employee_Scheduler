@@ -2,7 +2,7 @@
 
 A comprehensive employee scheduling application built with Python and Tkinter, featuring intelligent scheduling validation, modern UI design, and powerful management tools.
 
-![Employee Scheduler](https://img.shields.io/badge/Version-1.0.3-blue.svg)
+![Employee Scheduler](https://img.shields.io/badge/Version-1.0.5-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.7+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
