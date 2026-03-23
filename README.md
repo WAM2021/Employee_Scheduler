@@ -6,40 +6,40 @@ A comprehensive employee scheduling application built with Python and Tkinter, f
 ![Python](https://img.shields.io/badge/Python-3.7+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## ✨ Features
+## Features
 
-### 🎯 Core Scheduling
+### Core Scheduling
 - **Intelligent Shift Management** - Create, edit, and delete employee shifts with comprehensive validation
 - **Drag & Drop Scheduling** - Intuitive calendar interface with visual feedback
 - **Copy/Paste Shifts** - Easily duplicate schedules across different days
 - **Store Hours Integration** - Schedule options automatically adjust to store operating hours
 
-### 🛡️ Advanced Validation
+### Advanced Validation
 - **Employee Availability Checking** - Prevents scheduling outside available hours
 - **Time-Off Request Validation** - Respects full-day and partial time-off requests
 - **Shift Overlap Detection** - Prevents double-booking employees
 - **Conflict Resolution** - Smart conflict detection with user override options
 
-### 👥 Employee Management
+### Employee Management
 - **Employee Profiles** - Manage employee information and availability
 - **Flexible Availability** - Set different hours for each day of the week
 - **Time-Off Requests** - Track full-day and partial time-off requests
 - **Alphabetical Sorting** - All employee dropdowns sorted for easy navigation
 
-### 🎨 Modern User Interface
+### Modern User Interface
 - **Dark Mode Support** - Professional dark theme throughout the application
 - **Responsive Design** - Clean, modern interface that adapts to content
 - **Interactive Tooltips** - Helpful guidance for all menu buttons
 - **Enhanced Feedback** - Comprehensive user feedback for all operations
 - **2-Column Layout** - Optimized shift display with automatic font sizing
 
-### 🔧 Administrative Tools
+### Administrative Tools
 - **Store Hours Management** - Configure operating hours for each day
 - **Data Export/Import** - Backup and restore scheduling data
 - **Auto-Update System** - Built-in update checking and installation
 - **Professional Calendar View** - Month-by-month schedule overview
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.7 or higher
@@ -66,7 +66,7 @@ A comprehensive employee scheduling application built with Python and Tkinter, f
 ### Using the Executable
 Alternatively, download the pre-built executable from the [Releases](https://github.com/WAM2021/Employee_Scheduler/releases) page and run `Employee_Scheduler.exe` directly.
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### Setting Up Your Schedule
 
@@ -91,10 +91,10 @@ Alternatively, download the pre-built executable from the [Releases](https://git
 
 #### Intelligent Validation
 The system automatically checks for:
-- ✅ Employee availability conflicts
-- ✅ Requested time-off conflicts  
-- ✅ Shift overlap detection
-- ✅ Store hours compliance
+- Employee availability conflicts
+- Requested time-off conflicts  
+- Shift overlap detection
+- Store hours compliance
 
 #### Copy/Paste Workflows
 - **Copy Shifts**: Click the copy button on any day
@@ -106,7 +106,7 @@ The system automatically checks for:
 - Get detailed feedback for all copy/paste/delete operations
 - Clear conflict messages with resolution options
 
-## 🎨 UI Improvements (v1.0.3)
+## UI Improvements (v1.0.3)
 
 ### Enhanced User Experience
 - **Professional Tooltips** - 500ms delay with dark theme styling
@@ -122,7 +122,7 @@ The system automatically checks for:
 - Enhanced calendar cell design
 - Improved dialog layouts
 
-## 🔒 Validation System
+## Validation System
 
 The application includes comprehensive scheduling validation:
 
@@ -142,7 +142,7 @@ When conflicts are detected, users receive detailed information:
 - Option to proceed despite conflicts
 - Suggested resolutions where applicable
 
-## 📁 File Structure
+## File Structure
 
 ```
 Employee_Scheduler/
@@ -160,7 +160,7 @@ Employee_Scheduler/
     └── test_sorting.py
 ```
 
-## 🔧 Development
+## Development
 
 ### Building from Source
 
@@ -196,7 +196,7 @@ pip install pyinstaller
 pyinstaller Employee_Scheduler_v1.0.3.spec
 ```
 
-## 📝 Data Format
+## Data Format
 
 The application stores data in JSON format:
 
@@ -238,30 +238,27 @@ The application stores data in JSON format:
 }
 ```
 
-## 🚀 What's New in v1.0.3
+## What's New in v1.0.3
 
-### ✨ Major Features
+### Major Features
 - **Comprehensive Scheduling Validation** - Intelligent conflict detection and resolution
 - **Enhanced Copy/Paste System** - Validation during copy operations with detailed feedback
 - **Professional Tooltip System** - Helpful guidance for all menu buttons
 - **2-Column Layout** - Optimized shift display with time-based sorting
 
-### 🎨 UI Improvements  
+### UI Improvements  
 - Dynamic font sizing based on shift density
 - Enhanced user feedback for all operations
 - Professional dark theme styling
 - Improved dialog layouts and spacing
 - Modern button designs with hover effects
 
-### 🔧 Technical Improvements
+### Technical Improvements
 - Centralized validation system
 - Alphabetical sorting in all employee dropdowns
 - Enhanced error handling and user messaging
 - Improved code organization and maintainability
 
-## 🤝 Contributing
-
-We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
 ### Development Guidelines
 - Follow existing code style and conventions
@@ -269,11 +266,8 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 - Update documentation as needed
 - Ensure all tests pass before submitting
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
+## Support
 
 If you encounter any issues or have questions:
 
@@ -282,7 +276,7 @@ If you encounter any issues or have questions:
 3. Include steps to reproduce any bugs
 4. Attach relevant screenshots if applicable
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with Python and Tkinter
 - Coded with assistance from Copilot AI
