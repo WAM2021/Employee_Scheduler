@@ -285,12 +285,12 @@ If you encounter any issues or have questions:
 ## 🙏 Acknowledgments
 
 - Built with Python and Tkinter
+- Coded with assistance from Copilot AI
 - Inspired by modern scheduling applications
 - Community feedback and feature requests
 - Open source contributors
 
 ---
 
-**Made with ❤️ for better employee scheduling**
 
 *Last updated: October 27, 2025*
