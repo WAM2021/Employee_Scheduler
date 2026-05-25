@@ -5,6 +5,31 @@ All notable changes to the Employee Scheduler project will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-05-25
+
+### ✨ Added
+- **Employee Stats Heatmap Visualization**
+  - Color-coded weekly hours display showing scheduling intensity per employee
+  - Green background for 20-hour target (ideal scheduling)
+  - Blue gradient for underscheduled hours (0-20 hrs, deepest at 0)
+  - Red gradient for overscheduled hours (20-40 hrs, deepest at 40)
+  - Automatic text color adjustment (white/black) for optimal readability
+
+- **Automatic Data Cleanup System**
+  - Automatic removal of scheduled shifts older than 6 months
+  - Automatic removal of requested days off older than 6 months
+  - Cleanup runs on application startup and every save operation
+  - Configurable 6-month retention window
+  - Supports both legacy string format and new structured date-off formats
+
+### 🐛 Fixed
+- **Request Time Off Dialog Issues**
+  - Fixed "Invalid date format" error when using DateEntry widgets
+  - Corrected request type default value matching combobox options
+  - Now properly uses `DateEntry.get_date()` for reliable date parsing
+  - Improved error messages for validation failures
+  - Fixed duplicate exception handling causing obscured error messages
+
 ## [1.0.5] - 2025-10-28
 
 ### ✨ Added

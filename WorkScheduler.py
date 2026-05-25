@@ -12,13 +12,11 @@ from reportlab.pdfgen import canvas
 import requests
 import threading
 import zipfile
-import tempfile
 import shutil
-import subprocess
 import sys
 
 # Version information
-APP_VERSION = "1.0.5"  # Current version of the application
+APP_VERSION = "1.0.6"  # Current version of the application
 GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
@@ -61,12 +59,85 @@ def load_data():
             "sunday": None
         }
         save_data(data)
+
+    # Clean old schedule entries and requested days off older than 6 months
+    if clean_old_data(data, months=6):
+        save_data(data)
     
     return data
 
+
 def save_data(data):
+    clean_old_data(data, months=6)
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
+
+
+def get_date_months_ago(reference_date, months):
+    """Return a date that is `months` months before the reference date."""
+    year = reference_date.year
+    month = reference_date.month - months
+    while month <= 0:
+        month += 12
+        year -= 1
+    day = min(reference_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def clean_old_data(data, months=6):
+    """Remove scheduled shifts and requested time off older than the cutoff date."""
+    cutoff_date = get_date_months_ago(date.today(), months)
+    removed_any = False
+    
+    # Clean old scheduled shifts
+    schedule = data.get("schedule", {})
+    if isinstance(schedule, dict):
+        for month_key in list(schedule.keys()):
+            month_data = schedule.get(month_key)
+            if not isinstance(month_data, dict):
+                continue
+            for day_str in list(month_data.keys()):
+                try:
+                    day_dt = datetime.strptime(day_str, DATE_FMT).date()
+                except Exception:
+                    continue
+                if day_dt < cutoff_date:
+                    del month_data[day_str]
+                    removed_any = True
+            if not month_data:
+                del schedule[month_key]
+        data["schedule"] = schedule
+    
+    # Clean old requested days off for each employee
+    for emp in data.get("employees", []):
+        requested_off = emp.get("requested_days_off", [])
+        if not isinstance(requested_off, list):
+            continue
+        cleaned_requests = []
+        for request in requested_off:
+            request_date = None
+            
+            if isinstance(request, dict):
+                request_date = request.get("date")
+            elif isinstance(request, str):
+                request_date = request
+            
+            if not request_date:
+                continue
+            
+            try:
+                request_dt = datetime.strptime(request_date, DATE_FMT).date()
+            except Exception:
+                cleaned_requests.append(request)
+                continue
+            
+            if request_dt >= cutoff_date:
+                cleaned_requests.append(request)
+            else:
+                removed_any = True
+        emp["requested_days_off"] = cleaned_requests
+    
+    return removed_any
 
 def generate_times(start_str, end_str, interval_minutes=30):
     """Return list of times between start and end inclusive formatted with TIME_FMT."""
@@ -154,85 +225,28 @@ def check_for_updates(callback=None):
     thread.start()
 
 def apply_update(update_file_path=None):
-    """Launch the update assistant to guide the user through manual update."""
+    """Direct user to GitHub releases page for manual update."""
     try:
-        # Create and launch the update assistant
-        assistant_exe = create_update_assistant()
-        if not assistant_exe:
-            # Fallback: direct browser link
-            import webbrowser
-            webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
-            messagebox.showinfo(
-                "Update Available", 
-                f"A new version is available!\n\n"
-                f"Please download the latest version from the webpage that just opened.\n"
-                f"Then replace your current Employee_Scheduler.exe file with the new one."
-            )
-            return True
-        
-        # Launch the assistant
-        subprocess.Popen([assistant_exe], 
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-        return True
-        
-    except Exception as e:
-        # Fallback: direct browser link
+        # Direct browser link to releases
         import webbrowser
-        try:
-            webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
-            messagebox.showinfo(
-                "Update Available", 
-                f"A new version is available!\n\n"
-                f"Please download the latest version from the webpage that just opened.\n"
-                f"Then replace your current Employee_Scheduler.exe file with the new one."
-            )
-        except Exception:
-            # Handle any browser opening failures
-            messagebox.showinfo(
-                "Update Available", 
-                f"A new version is available!\n\n"
-                f"Please visit: https://github.com/{GITHUB_REPO}/releases/latest\n"
-                f"Download the latest .exe file and replace your current one."
-            )
+        webbrowser.open(f"https://github.com/{GITHUB_REPO}/releases/latest")
+        messagebox.showinfo(
+            "Update Available", 
+            f"A new version is available!\n\n"
+            f"Please download the latest version from the webpage that just opened.\n"
+            f"Then replace your current Employee_Scheduler.exe file with the new one."
+        )
         return True
-#REVIEW - Creation of update assistant
-def create_update_assistant():
-    """Create the update assistant executable."""
-    try:
-        # Get the assistant source code
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        assistant_py = os.path.join(current_dir, "update_assistant.py")
         
-        if not os.path.exists(assistant_py):
-            return None
-        
-        # Create temporary directory for the assistant
-        temp_dir = tempfile.mkdtemp()
-        assistant_exe = os.path.join(temp_dir, "Update_Assistant.exe")
-        
-        # Build the assistant using PyInstaller
-        build_cmd = [
-            "pyinstaller",
-            "--onefile",
-            "--windowed",
-            "--name", "Update_Assistant",
-            "--distpath", temp_dir,
-            "--workpath", os.path.join(temp_dir, "build"),
-            "--specpath", temp_dir,
-            assistant_py
-        ]
-        
-        # Run PyInstaller
-        result = subprocess.run(build_cmd, capture_output=True, text=True, cwd=current_dir)
-        
-        if result.returncode == 0 and os.path.exists(assistant_exe):
-            return assistant_exe
-        else:
-            return None
-            
-    except Exception as e:
-        return None
-
+    except Exception:
+        # Handle any browser opening failures
+        messagebox.showinfo(
+            "Update Available", 
+            f"A new version is available!\n\n"
+            f"Please visit: https://github.com/{GITHUB_REPO}/releases/latest\n"
+            f"Download the latest .exe file and replace your current one."
+        )
+        return True
 def friendly_weekday_name(dt):
     return dt.strftime("%A")  # 'Monday' etc.
 
@@ -945,6 +959,9 @@ Thank you for keeping your application up to date!"""
             # Get current shifts for this day
             month_key = f"{day_dt.year}-{day_dt.month:02d}"
             current_shifts = self.data.get("schedule", {}).get(month_key, {}).get(day_str, [])
+            
+            # Sort shifts by start time (earliest first)
+            current_shifts = self.sort_shifts_by_start_time(current_shifts)
             
             if not current_shifts:
                 no_shifts_label = tk.Label(scrollable_frame, 
@@ -2774,6 +2791,18 @@ Thank you for keeping your application up to date!"""
             if emp.get("name") == employee_name:
                 return emp.get("color", "#000000")
         return "#000000"  # Default black if employee not found
+    
+    def sort_shifts_by_start_time(self, shifts):
+        """Sort shifts by their start time, earliest first"""
+        def get_sort_time(shift):
+            try:
+                # Parse the time string and convert to minutes for proper sorting
+                dt = datetime.strptime(shift['start'], TIME_FMT)
+                return dt.hour * 60 + dt.minute  # Convert to minutes for easy comparison
+            except ValueError:
+                return 999999  # Put invalid times at the end
+        
+        return sorted(shifts, key=get_sort_time)
 
     def add_requested_day(self):
         sel = self.emp_listbox.curselection()
@@ -2796,7 +2825,7 @@ Thank you for keeping your application up to date!"""
 
         # Request type selection
         ttk.Label(main_frame, text="Type of Request:", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0, 5))
-        request_type = tk.StringVar(value="full_day")
+        request_type = tk.StringVar(value="Single Full Day")
         type_frame = ttk.Frame(main_frame)
         type_frame.pack(fill="x", pady=(0, 10))
         type_cb = ttk.Combobox(type_frame, textvariable=request_type, state="readonly", width=30)
@@ -2923,24 +2952,30 @@ Thank you for keeping your application up to date!"""
                 
                 selection = request_type.get()
                 if selection == "Single Full Day":
-                    date_str = full_day_cal.get()
-                    if not date_str:
-                        raise ValueError("Please select a date")
-                    date = datetime.strptime(date_str, DATE_FMT)
+                    try:
+                        date_obj = full_day_cal.get_date()
+                    except Exception:
+                        raise ValueError("Please select a valid date")
+                    date_str = date_obj.strftime(DATE_FMT)
                     dates_to_add.append((date_str, "full"))
                     
                 elif selection == "Partial Day":
-                    date_str = partial_day_cal.get()
+                    try:
+                        date_obj = partial_day_cal.get_date()
+                    except Exception:
+                        raise ValueError("Please select a valid date")
+                    date_str = date_obj.strftime(DATE_FMT)
                     start_time = start_var.get()
                     end_time = end_var.get()
                     
-                    if not all([date_str, start_time, end_time]):
-                        raise ValueError("Please fill in all fields")
+                    if not all([start_time, end_time]):
+                        raise ValueError("Please fill in all time fields")
                         
-                    # Validate date and times
-                    date = datetime.strptime(date_str, DATE_FMT)
-                    start_dt = datetime.strptime(start_time, TIME_FMT)
-                    end_dt = datetime.strptime(end_time, TIME_FMT)
+                    try:
+                        start_dt = datetime.strptime(start_time, TIME_FMT)
+                        end_dt = datetime.strptime(end_time, TIME_FMT)
+                    except Exception:
+                        raise ValueError("Please select valid start and end times")
                     
                     if end_dt <= start_dt:
                         raise ValueError("End time must be after start time")
@@ -2948,19 +2983,15 @@ Thank you for keeping your application up to date!"""
                     dates_to_add.append((date_str, "partial", start_time, end_time))
                     
                 elif selection == "Multiple Days":
-                    start_str = start_date_cal.get()
-                    end_str = end_date_cal.get()
-                    
-                    if not all([start_str, end_str]):
-                        raise ValueError("Please select both start and end dates")
-                        
-                    start_date = datetime.strptime(start_str, DATE_FMT)
-                    end_date = datetime.strptime(end_str, DATE_FMT)
+                    try:
+                        start_date = start_date_cal.get_date()
+                        end_date = end_date_cal.get_date()
+                    except Exception:
+                        raise ValueError("Please select valid start and end dates")
                     
                     if end_date < start_date:
                         raise ValueError("End date must be after start date")
                         
-                    # Generate all dates in range
                     current = start_date
                     while current <= end_date:
                         dates_to_add.append((current.strftime(DATE_FMT), "full"))
@@ -2970,28 +3001,19 @@ Thank you for keeping your application up to date!"""
                 conflicts = self.check_time_off_conflicts(emp_name, dates_to_add)
                 
                 if conflicts:
-                    # Show conflict resolution dialog
                     if self.show_conflict_resolution_dialog(emp_name, conflicts):
-                        # User chose to proceed, add the time off requests
-                        self.add_time_off_to_list(dates_to_add)
+                        add_time_off_to_list(dates_to_add)
                         self.mark_employee_dirty()
                         dialog.destroy()
-                    # If user chose not to proceed, dialog stays open
                 else:
-                    # No conflicts, proceed normally
-                    self.add_time_off_to_list(dates_to_add)
+                    add_time_off_to_list(dates_to_add)
                     self.mark_employee_dirty()
                     dialog.destroy()
                 
             except ValueError as e:
                 messagebox.showerror("Invalid Input", str(e))
             except Exception as e:
-                messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD.")
-                
-            except ValueError as e:
-                messagebox.showerror("Invalid Input", str(e))
-            except Exception as e:
-                messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD.")
+                messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
         
         def add_time_off_to_list(dates_to_add):
             """Helper function to add time off requests to the list"""
@@ -3956,6 +3978,33 @@ Thank you for keeping your application up to date!"""
             emp_listbox.selection_set(0)
             on_employee_select(None)
         
+    def get_heatmap_color_for_hours(self, hours, target_hours=20.0):
+        """Calculate a color for the heatmap based on hours vs target
+        Green at target (20 hours)
+        Blue for hours < target
+        Red for hours > target
+        Returns a hex color string"""
+        # Clamp hours to 0-40 range for gradient calculation
+        hours = max(0, min(hours, 40))
+        
+        if hours <= target_hours:
+            # Transition from blue (0,0,255) to green (0,255,0)
+            ratio = hours / target_hours  # 0 to 1
+            
+            red = 0
+            green = int(255 * ratio)
+            blue = int(255 * (1 - ratio))
+        else:
+            # Transition from green (0,255,0) to red (255,0,0)
+            ratio = (hours - target_hours) / (40 - target_hours)  # 0 to 1
+            
+            red = int(255 * ratio)
+            green = int(255 * (1 - ratio))
+            blue = 0
+        
+        # Convert to hex color
+        return f"#{red:02x}{green:02x}{blue:02x}"
+    
     def show_employee_stats(self):
         """Show employee statistics dialog with weekly hours for the current month"""
         from datetime import datetime, timedelta
@@ -4092,10 +4141,18 @@ Thank you for keeping your application up to date!"""
                 # Display hours (rounded to 1 decimal place)
                 hours_text = f"{total_hours:.1f}" if total_hours > 0 else "0"
                 
+                # Get heatmap color based on hours (20 is the target)
+                bg_color = self.get_heatmap_color_for_hours(total_hours, target_hours=20.0)
+                
+                # Determine text color (white for darker backgrounds, black for lighter)
+                # Darker backgrounds are when we're far from green (20 hours)
+                distance_from_target = abs(total_hours - 20)
+                text_color = 'white' if distance_from_target > 10 else 'black'
+                
                 hours_label = tk.Label(table_frame, text=hours_text,
                                      font=cell_font,
-                                     bg=self.colors['surface_alt'] if row % 2 == 0 else self.colors['surface'],
-                                     fg=self.colors['text_primary'],
+                                     bg=bg_color,
+                                     fg=text_color,
                                      relief='solid',
                                      borderwidth=1,
                                      padx=10, pady=6)
@@ -6092,16 +6149,8 @@ Thank you for keeping your application up to date!"""
                 shift_bg = bg_color if not has_bg_modification else bg_color  # Keep same bg but use transparency effect
                 
                 if num_shifts > 0:
-                    # Sort shifts by start time for better organization (proper time sorting)
-                    def get_sort_time(shift):
-                        try:
-                            # Parse the time string and convert to 24-hour format for proper sorting
-                            dt = datetime.strptime(shift['start'], TIME_FMT)
-                            return dt.hour * 60 + dt.minute  # Convert to minutes for easy comparison
-                        except ValueError:
-                            return 999999  # Put invalid times at the end
-                    
-                    sorted_shifts = sorted(shifts, key=get_sort_time)
+                    # Sort shifts by start time for better organization (earliest first)
+                    sorted_shifts = self.sort_shifts_by_start_time(shifts)
                     
                     # Use larger, more readable fonts for shifts - increased further for 2-column layout
                     if num_shifts <= 4:
@@ -6999,6 +7048,8 @@ Thank you for keeping your application up to date!"""
                 
                 # shifts
                 shifts = month_schedule.get(day_str, [])
+                # Sort shifts by start time (earliest first)
+                shifts = self.sort_shifts_by_start_time(shifts)
                 if shifts:
                     # list shifts with wrapping and auto-adjust font size per cell
                     # padding inside cell
