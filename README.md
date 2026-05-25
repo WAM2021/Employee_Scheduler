@@ -10,7 +10,7 @@ A comprehensive employee scheduling application built with Python and Tkinter, f
 
 ### Core Scheduling
 - **Intelligent Shift Management** - Create, edit, and delete employee shifts with comprehensive validation
-- **Drag & Drop Scheduling** - Intuitive calendar interface with visual feedback
+- **Statistics and Colors** - Intuitive calendar interface with visual feedback
 - **Copy/Paste Shifts** - Easily duplicate schedules across different days
 - **Store Hours Integration** - Schedule options automatically adjust to store operating hours
 
