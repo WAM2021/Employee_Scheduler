@@ -5,6 +5,14 @@ All notable changes to the Employee Scheduler project will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-05-25
+
+### ✨ Improved
+- Adjusted the schedule conflict dialog width for better readability and layout during conflict review
+
+### 🐛 Fixed
+- Minor UI adjustment to the schedule conflict popup sizing
+
 ## [1.0.6] - 2026-05-25
 
 ### ✨ Added

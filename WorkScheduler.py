@@ -16,7 +16,7 @@ import shutil
 import sys
 
 # Version information
-APP_VERSION = "1.0.6"  # Current version of the application
+APP_VERSION = "1.0.7"  # Current version of the application
 GITHUB_REPO = "WAM2021/Employee_Scheduler"  # Your actual GitHub repo
 UPDATE_CHECK_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
@@ -3116,7 +3116,7 @@ Thank you for keeping your application up to date!"""
         dialog.grab_set()
         
         # Set size and center the dialog
-        self.center_dialog(dialog, width=600, height=400)
+        self.center_dialog(dialog, width=1000, height=400)
         
         # Main frame with padding
         main_frame = ttk.Frame(dialog, padding="20")
