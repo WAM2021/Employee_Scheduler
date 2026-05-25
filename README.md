@@ -2,7 +2,7 @@
 
 A comprehensive employee scheduling application built with Python and Tkinter, featuring intelligent scheduling validation, modern UI design, and powerful management tools.
 
-![Employee Scheduler](https://img.shields.io/badge/Version-1.0.5-blue.svg)
+![Employee Scheduler](https://img.shields.io/badge/Version-1.0.7-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.7+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -150,7 +150,7 @@ Employee_Scheduler/
 ├── employees.json             # Employee and schedule data
 ├── requirements.txt           # Python dependencies
 ├── build_exe.bat             # Executable build script
-├── Employee_Scheduler_v1.0.3.spec # PyInstaller specification
+├── Employee_Scheduler_v1.0.7.spec # PyInstaller specification
 ├── README.md                 # This file
 ├── docs/                     # Documentation files
 │   ├── UI_MODERNIZATION_SUMMARY.md
@@ -238,6 +238,12 @@ The application stores data in JSON format:
 }
 ```
 
+## What's New in v1.0.7
+
+### Minor Improvements
+- **Schedule Conflict Dialog Enhancement** - Increased popup width for better readability during conflict review
+- **UI Polish** - Improved layout of conflict details and action buttons for a smoother scheduling experience
+
 ## What's New in v1.0.3
 
 ### Major Features
@@ -287,4 +293,4 @@ If you encounter any issues or have questions:
 ---
 
 
-*Last updated: October 27, 2025*
+*Last updated: May 25, 2026*
