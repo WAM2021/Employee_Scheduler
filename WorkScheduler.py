@@ -1913,16 +1913,81 @@ Thank you for keeping your application up to date!"""
         # Populate listbox
         self.refresh_employee_list()
 
-        # Center: availability editor with modern styling
+        # Center: employee profile and availability editor with modern styling
         center_content = tk.Frame(center, bg=self.colors['surface'], padx=20, pady=20)
         center_content.pack(fill="both", expand=True)
+
+        self.employee_profile_widgets = {}
+
+        profile_frame = tk.LabelFrame(center_content, text="👤 Employee Profile", 
+                                    font=("Segoe UI", header_font_size - 1, "bold"),
+                                    bg=self.colors['surface'],
+                                    fg=self.colors['text_primary'],
+                                    padx=12, pady=12)
+        profile_frame.grid(row=0, column=0, columnspan=6, sticky="ew", pady=(0, 15))
+        center_content.grid_columnconfigure(0, weight=1)
+
+        profile_grid = tk.Frame(profile_frame, bg=self.colors['surface'])
+        profile_grid.pack(fill="x")
+
+        ttk.Label(profile_grid, text="Position / Role:").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=5)
+        position_var = tk.StringVar()
+        position_entry = ttk.Entry(profile_grid, textvariable=position_var, width=28)
+        position_entry.grid(row=0, column=1, sticky="ew", padx=(0, 15), pady=5)
+        self.employee_profile_widgets['position_var'] = position_var
+        position_var.trace_add('write', lambda *args: self.mark_employee_dirty())
+
+        ttk.Label(profile_grid, text="Access Skills:").grid(row=0, column=2, sticky="w", padx=(0, 10), pady=5)
+        skills_listbox = tk.Listbox(profile_grid, height=2, width=24,
+                                    selectmode=tk.MULTIPLE, exportselection=False,
+                                    bg=self.colors['surface'], fg=self.colors['text_primary'],
+                                    selectbackground=self.colors['primary'],
+                                    selectforeground='white', relief='flat',
+                                    borderwidth=1, highlightbackground=self.colors['border'],
+                                    highlightthickness=1)
+        skills_listbox.grid(row=0, column=3, sticky="ew", pady=5)
+        skills_listbox.insert(tk.END, "Has Key")
+        skills_listbox.insert(tk.END, "Can Open Store")
+        skills_listbox.bind("<<ListboxSelect>>", lambda *args: self.mark_employee_dirty())
+        self.employee_profile_widgets['skills_listbox'] = skills_listbox
+
+        ttk.Label(profile_grid, text="Min Weekly Hours:").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=5)
+        min_hours_var = tk.IntVar(value=0)
+        min_hours_spin = ttk.Spinbox(profile_grid, from_=0, to=60, textvariable=min_hours_var, width=8)
+        min_hours_spin.grid(row=1, column=1, sticky="w", padx=(0, 15), pady=5)
+        self.employee_profile_widgets['min_hours_var'] = min_hours_var
+        min_hours_var.trace_add('write', lambda *args: self.mark_employee_dirty())
+
+        ttk.Label(profile_grid, text="Max Weekly Hours:").grid(row=1, column=2, sticky="w", padx=(0, 10), pady=5)
+        max_hours_var = tk.IntVar(value=40)
+        max_hours_spin = ttk.Spinbox(profile_grid, from_=0, to=80, textvariable=max_hours_var, width=8)
+        max_hours_spin.grid(row=1, column=3, sticky="w", pady=5)
+        self.employee_profile_widgets['max_hours_var'] = max_hours_var
+        max_hours_var.trace_add('write', lambda *args: self.mark_employee_dirty())
+
+        ttk.Label(profile_grid, text="Preferred Shift Length:").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=5)
+        preferred_shift_var = tk.IntVar(value=8)
+        preferred_shift_spin = ttk.Spinbox(profile_grid, from_=4, to=16, textvariable=preferred_shift_var, width=8)
+        preferred_shift_spin.grid(row=2, column=1, sticky="w", padx=(0, 15), pady=5)
+        self.employee_profile_widgets['preferred_shift_var'] = preferred_shift_var
+        preferred_shift_var.trace_add('write', lambda *args: self.mark_employee_dirty())
+
+        ttk.Label(profile_grid, text="Max Consecutive Days:").grid(row=2, column=2, sticky="w", padx=(0, 10), pady=5)
+        max_days_var = tk.IntVar(value=5)
+        max_days_spin = ttk.Spinbox(profile_grid, from_=1, to=7, textvariable=max_days_var, width=8)
+        max_days_spin.grid(row=2, column=3, sticky="w", pady=5)
+        self.employee_profile_widgets['max_days_var'] = max_days_var
+        max_days_var.trace_add('write', lambda *args: self.mark_employee_dirty())
+
+        profile_grid.grid_columnconfigure(1, weight=1)
+        profile_grid.grid_columnconfigure(3, weight=1)
         
         avail_header = tk.Label(center_content, 
                                text="📅 Availability Schedule", 
                                font=("Segoe UI", header_font_size, "bold"),
                                bg=self.colors['surface'],
                                fg=self.colors['text_primary'])
-        avail_header.grid(row=0, column=0, columnspan=4, pady=(0, 20), sticky="w")
+        avail_header.grid(row=1, column=0, columnspan=4, pady=(0, 20), sticky="w")
         self.employee_tab_widgets['headers'].append(avail_header)
         
         sub_header = tk.Label(center_content,
@@ -1930,7 +1995,7 @@ Thank you for keeping your application up to date!"""
                              font=("Segoe UI", base_font_size - 1),
                              bg=self.colors['surface'],
                              fg=self.colors['text_secondary'])
-        sub_header.grid(row=1, column=0, columnspan=4, pady=(0, 15), sticky="w")
+        sub_header.grid(row=2, column=0, columnspan=4, pady=(0, 15), sticky="w")
         self.employee_tab_widgets['labels'].append(sub_header)
         
         self.days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
@@ -2424,6 +2489,12 @@ Thank you for keeping your application up to date!"""
                 "firstName": first,
                 "lastName": last,
                 "position": "",
+                "has_key": False,
+                "can_open_store": False,
+                "min_weekly_hours": 0,
+                "max_weekly_hours": 40,
+                "preferred_shift_length": 8,
+                "max_consecutive_days": 5,
                 "color": "#000000",  # Default black color for employee names
                 "availability": {d: ["off"] for d in self.days},
                 "requested_days_off": []
@@ -2495,6 +2566,20 @@ Thank you for keeping your application up to date!"""
             
             if not emp:
                 return
+            
+            # Fill employee profile fields
+            if hasattr(self, 'employee_profile_widgets'):
+                self.employee_profile_widgets['position_var'].set(emp.get('position', ''))
+                skills_listbox = self.employee_profile_widgets['skills_listbox']
+                skills_listbox.selection_clear(0, tk.END)
+                if emp.get('has_key', False):
+                    skills_listbox.selection_set(0)
+                if emp.get('can_open_store', False):
+                    skills_listbox.selection_set(1)
+                self.employee_profile_widgets['min_hours_var'].set(emp.get('min_weekly_hours', 0))
+                self.employee_profile_widgets['max_hours_var'].set(emp.get('max_weekly_hours', 40))
+                self.employee_profile_widgets['preferred_shift_var'].set(emp.get('preferred_shift_length', 8))
+                self.employee_profile_widgets['max_days_var'].set(emp.get('max_consecutive_days', 5))
             
             # Fill availability into widgets
             for day, w in self.avail_widgets.items():
@@ -2754,6 +2839,13 @@ Thank you for keeping your application up to date!"""
         ttk.Button(btn_frame, text="Save Color", command=save_color).pack(side="right", padx=(5, 0))
 
     def clear_employee_editor(self):
+        if hasattr(self, 'employee_profile_widgets'):
+            self.employee_profile_widgets['position_var'].set("")
+            self.employee_profile_widgets['skills_listbox'].selection_clear(0, tk.END)
+            self.employee_profile_widgets['min_hours_var'].set(0)
+            self.employee_profile_widgets['max_hours_var'].set(40)
+            self.employee_profile_widgets['preferred_shift_var'].set(8)
+            self.employee_profile_widgets['max_days_var'].set(5)
         for day, w in self.avail_widgets.items():
             w['var'].set(0)
             w['start_cb'].set("")
@@ -3508,6 +3600,22 @@ Thank you for keeping your application up to date!"""
                 messagebox.showerror("Error", "Employee not found.")
             return False
         
+        # Employee profile fields
+        if hasattr(self, 'employee_profile_widgets'):
+            emp['position'] = self.employee_profile_widgets['position_var'].get().strip()
+            skills_selection = set(self.employee_profile_widgets['skills_listbox'].curselection())
+            emp['has_key'] = 0 in skills_selection
+            emp['can_open_store'] = 1 in skills_selection
+            emp['min_weekly_hours'] = max(0, int(self.employee_profile_widgets['min_hours_var'].get()))
+            emp['max_weekly_hours'] = max(0, int(self.employee_profile_widgets['max_hours_var'].get()))
+            emp['preferred_shift_length'] = max(4, int(self.employee_profile_widgets['preferred_shift_var'].get()))
+            emp['max_consecutive_days'] = max(1, int(self.employee_profile_widgets['max_days_var'].get()))
+
+            if emp['max_weekly_hours'] < emp['min_weekly_hours']:
+                if not silent:
+                    messagebox.showerror("Invalid Hours", "Maximum weekly hours must be greater than or equal to minimum weekly hours.")
+                return False
+
         # Availability parsing
         for day, w in self.avail_widgets.items():
             if w['var'].get():
@@ -3626,6 +3734,11 @@ Thank you for keeping your application up to date!"""
                                             self.show_employee_stats, 'primary_dark', width=15, font_size_offset=2)
         stats_btn.pack(side="left", padx=(5, 10))
         
+        # Auto-schedule generation button
+        auto_schedule_btn = self.create_modern_button(nav_container, "⚙️ Auto Generate Schedule", 
+                                                      self.start_auto_schedule_generation, 'success', width=22, font_size_offset=2)
+        auto_schedule_btn.pack(side="right", padx=(10, 0))
+
         # PDF button
         pdf_btn = self.create_modern_button(nav_container, "📄 Generate PDF", 
                                           self.generate_month_pdf, 'primary', width=15, font_size_offset=2)
@@ -3676,6 +3789,185 @@ Thank you for keeping your application up to date!"""
         
         # Redraw the calendar to apply the color change
         self.draw_calendar()
+
+    def start_auto_schedule_generation(self):
+        """Generate a simple month schedule using availability, time-off rules, and skills."""
+        try:
+            if not self.data.get("employees"):
+                messagebox.showwarning("No Employees", "Add employees before running auto-schedule generation.")
+                return
+
+            month_key = f"{self.current_year}-{self.current_month:02d}"
+            if messagebox.askyesno(
+                "Generate Auto Schedule",
+                f"Generate a new schedule for {self.current_year}-{self.current_month:02d}?\n\n"
+                "This will replace the existing generated shifts for the current month."
+            ):
+                generated_count = self.generate_month_schedule(self.current_year, self.current_month)
+                if generated_count > 0:
+                    save_data(self.data)
+                    self.draw_calendar()
+                    messagebox.showinfo(
+                        "Auto Schedule Generated",
+                        f"Generated {generated_count} shift(s) for {self.current_year}-{self.current_month:02d}."
+                    )
+                else:
+                    messagebox.showinfo(
+                        "Auto Schedule Generated",
+                        f"No shifts were generated for {self.current_year}-{self.current_month:02d}."
+                    )
+        except Exception as exc:
+            messagebox.showerror("Auto Schedule Error", f"Unable to generate schedule:\n\n{exc}")
+
+    def generate_month_schedule(self, year, month):
+        """Create a simple monthly schedule using employee availability, skills, and hour limits."""
+        month_key = f"{year}-{month:02d}"
+        month_days = calendar.monthrange(year, month)[1]
+        generated_count = 0
+
+        # Clear any existing schedule for this month before regenerating.
+        self.data.setdefault("schedule", {})
+        self.data["schedule"][month_key] = {}
+
+        # Track weekly scheduled hours and consecutive-day streaks for balancing.
+        weekly_hours = {emp.get("name"): {} for emp in self.data.get("employees", [])}
+        streaks = {emp.get("name"): 0 for emp in self.data.get("employees", []) if emp.get("name")}
+
+        for day in range(1, month_days + 1):
+            day_dt = date(year, month, day)
+            day_str = day_dt.strftime(DATE_FMT)
+            day_name = day_dt.strftime("%A").lower()
+
+            store_hours = get_store_hours_for_date(day_str, self.data.get("store_hours", {}), self.data.get("store_modifications", {}))
+            if not store_hours or store_hours == [None, None]:
+                continue
+
+            store_open = datetime.strptime(store_hours[0], TIME_FMT)
+            store_close = datetime.strptime(store_hours[1], TIME_FMT)
+            if store_close <= store_open:
+                continue
+
+            available_employees = []
+            for emp in self.data.get("employees", []):
+                emp_name = emp.get("name")
+                if not emp_name:
+                    continue
+
+                requested_off = emp.get("requested_days_off", [])
+                if any(
+                    (isinstance(req, dict) and req.get("date") == day_str)
+                    or (not isinstance(req, dict) and req == day_str)
+                    for req in requested_off
+                ):
+                    continue
+
+                availability = emp.get("availability", {}).get(day_name, ["off"])
+                if availability == ["off"]:
+                    continue
+
+                try:
+                    avail_start = datetime.strptime(availability[0], TIME_FMT)
+                    avail_end = datetime.strptime(availability[1], TIME_FMT)
+                    if avail_end <= avail_start:
+                        continue
+
+                    shift_start = max(avail_start, store_open)
+                    shift_end = min(avail_end, store_close)
+                    if shift_end <= shift_start:
+                        continue
+
+                    shift_length_hours = (shift_end - shift_start).total_seconds() / 3600.0
+                    if shift_length_hours <= 0:
+                        continue
+
+                    week_number = day_dt.isocalendar()[1]
+                    scheduled_this_week = weekly_hours.get(emp_name, {}).get(week_number, 0)
+                    max_weekly = max(0, int(emp.get("max_weekly_hours", 40)))
+                    projected_hours = scheduled_this_week + shift_length_hours
+                    if projected_hours > max_weekly:
+                        continue
+
+                    max_consecutive = max(1, int(emp.get("max_consecutive_days", 5)))
+                    if streaks.get(emp_name, 0) >= max_consecutive:
+                        continue
+
+                    available_employees.append({
+                        "employee": emp_name,
+                        "shift_start": shift_start,
+                        "shift_end": shift_end,
+                        "shift_length_hours": shift_length_hours,
+                        "emp": emp,
+                        "week_hours": scheduled_this_week,
+                    })
+                except Exception:
+                    continue
+
+            if not available_employees:
+                continue
+
+            def candidate_sort_key(item):
+                emp = item["emp"]
+                preferred_shift = max(4, int(emp.get("preferred_shift_length", 8)))
+                hours_gap = abs(item["shift_length_hours"] - preferred_shift)
+                streak_penalty = item["week_hours"] / max(1, max(0, int(emp.get("max_weekly_hours", 40))))
+                return (
+                    0 if emp.get("can_open_store") else 1,
+                    0 if emp.get("has_key") else 1,
+                    hours_gap,
+                    streak_penalty,
+                    item["shift_start"]
+                )
+
+            available_employees.sort(key=candidate_sort_key)
+
+            required_staff = 1
+            if (store_close - store_open).total_seconds() >= 8 * 3600:
+                required_staff = 2
+
+            scheduled_on_day = []
+            assigned_names = set()
+
+            opener_candidates = [item for item in available_employees if item["emp"].get("can_open_store")]
+            if opener_candidates:
+                opener = opener_candidates[0]
+                scheduled_on_day.append(opener)
+                assigned_names.add(opener["employee"])
+
+            key_candidates = [item for item in available_employees if item["emp"].get("has_key") and item["employee"] not in assigned_names]
+            if key_candidates and len(scheduled_on_day) < required_staff:
+                key_emp = key_candidates[0]
+                scheduled_on_day.append(key_emp)
+                assigned_names.add(key_emp["employee"])
+
+            for item in available_employees:
+                if len(scheduled_on_day) >= required_staff:
+                    break
+                if item["employee"] in assigned_names:
+                    continue
+                scheduled_on_day.append(item)
+                assigned_names.add(item["employee"])
+
+            # Save the created shifts for the day.
+            for item in scheduled_on_day:
+                shift_entry = {
+                    "employee": item["employee"],
+                    "start": item["shift_start"].strftime(TIME_FMT),
+                    "end": item["shift_end"].strftime(TIME_FMT)
+                }
+                self.data["schedule"][month_key].setdefault(day_str, []).append(shift_entry)
+                generated_count += 1
+
+                week_number = day_dt.isocalendar()[1]
+                weekly_hours.setdefault(item["employee"], {})
+                weekly_hours[item["employee"]][week_number] = weekly_hours[item["employee"]].get(week_number, 0) + item["shift_length_hours"]
+                streaks[item["employee"]] = streaks.get(item["employee"], 0) + 1
+
+            # Reset streaks for employees who were not scheduled that day.
+            for emp_name in streaks:
+                if emp_name not in assigned_names:
+                    streaks[emp_name] = 0
+
+        return generated_count
         
     def show_color_editor(self):
         """Show comprehensive employee color editor dialog"""
