@@ -960,10 +960,28 @@ Thank you for keeping your application up to date!"""
             month_key = f"{day_dt.year}-{day_dt.month:02d}"
             current_shifts = self.data.get("schedule", {}).get(month_key, {}).get(day_str, [])
             
-            # Sort shifts by start time (earliest first)
-            current_shifts = self.sort_shifts_by_start_time(current_shifts)
+            # Keep each shift's original list index so edit/delete actions
+            # still target the correct stored entry even if the UI display is
+            # sorted by start time for readability.
+            display_rows = [
+                (original_index, shift)
+                for original_index, shift in enumerate(current_shifts)
+            ]
             
-            if not current_shifts:
+            # Rebuild a clean sort key using the same logic as the shared helper.
+            def get_display_order_key(shift):
+                try:
+                    dt = datetime.strptime(shift['start'], TIME_FMT)
+                    return dt.hour * 60 + dt.minute
+                except ValueError:
+                    return 999999
+            
+            display_rows = sorted(
+                display_rows,
+                key=lambda row: get_display_order_key(row[1])
+            )
+            
+            if not display_rows:
                 no_shifts_label = tk.Label(scrollable_frame, 
                                          text="No shifts scheduled for this day",
                                          font=("Segoe UI", 10),
@@ -1002,8 +1020,9 @@ Thank you for keeping your application up to date!"""
                 child.bind("<Button-4>", lambda e: on_mousewheel_linux(e, -1))
                 child.bind("<Button-5>", lambda e: on_mousewheel_linux(e, 1))
 
-            # Display each shift in columns
-            for i, shift in enumerate(current_shifts):
+            # Display each shift in columns, but preserve the original list index
+            # for the edit/delete callbacks.
+            for original_index, shift in display_rows:
                 shift_frame = tk.Frame(scrollable_frame, relief="solid", bd=1, padx=10, pady=6)
                 shift_frame.pack(fill="x", padx=5, pady=1)
                 
@@ -1052,7 +1071,7 @@ Thank you for keeping your application up to date!"""
                 btn_frame.bind("<Button-5>", lambda e: on_mousewheel_linux(e, 1))
                 
                 # Edit button
-                def edit_shift(shift_index=i):
+                def edit_shift(shift_index=original_index):
                     self.edit_shift_dialog(dialog, day_str, shift_index, refresh_shifts_list)
                 
                 edit_btn = tk.Button(btn_frame, text="✎", 
@@ -1068,7 +1087,7 @@ Thank you for keeping your application up to date!"""
                 edit_btn.bind("<Button-5>", lambda e: on_mousewheel_linux(e, 1))
                 
                 # Delete button
-                def delete_shift(shift_index=i, employee_name=shift['employee']):
+                def delete_shift(shift_index=original_index, employee_name=shift['employee']):
                     if messagebox.askyesno("Confirm Delete", 
                                          f"Delete shift for {employee_name}?"):
                         month_key = f"{day_dt.year}-{day_dt.month:02d}"
@@ -2442,58 +2461,20 @@ Thank you for keeping your application up to date!"""
         if not emp:
             return
         
-        # Count shifts to show in confirmation
-        shift_count = 0
-        schedule = self.data.get("schedule", {})
-        for month_data in schedule.values():
-            if isinstance(month_data, dict):
-                for shifts in month_data.values():
-                    if isinstance(shifts, list):
-                        shift_count += sum(1 for s in shifts if s.get("employee") == emp["name"])
-        
-        # Show confirmation dialog with shift count
+        # Show confirmation dialog. Removing the employee record should not
+        # remove their already-scheduled shifts from the calendar data.
         if not messagebox.askyesno("Confirm Remove", 
-            f"Are you sure you want to remove {emp['name']}?\n\n"
-            f"This will also remove their {shift_count} scheduled shift(s)."):
+            f"Are you sure you want to remove {emp['name']} from the employee list?\n\n"
+            f"Their existing scheduled shifts will be kept in the calendar."):
             return
             
-        # Remove if confirmed
+        # Remove the employee from the employee registry only.
         self.data["employees"].pop(emp_index)
-        
-        # Remove any scheduled shifts for this employee across all months
-        shifts_removed = False
-        for month_key in list(schedule.keys()):
-            month_data = schedule[month_key]
-            # Handle both dictionary and list structures
-            if isinstance(month_data, dict):
-                for day_key in list(month_data.keys()):
-                    shifts = month_data[day_key]
-                    if isinstance(shifts, list):
-                        filtered_shifts = [s for s in shifts if s.get("employee") != emp["name"]]
-                        if len(filtered_shifts) != len(shifts):
-                            shifts_removed = True
-                        month_data[day_key] = filtered_shifts
-                        # Clean up empty days
-                        if not filtered_shifts:
-                            del month_data[day_key]
-                # Clean up empty months
-                if not month_data:
-                    del schedule[month_key]
-            elif isinstance(month_data, list):
-                filtered_shifts = [s for s in month_data if s.get("employee") != emp["name"]]
-                if len(filtered_shifts) != len(month_data):
-                    shifts_removed = True
-                schedule[month_key] = filtered_shifts
-                if not filtered_shifts:
-                    del schedule[month_key]
         
         save_data(self.data)
         self.refresh_employee_list()
         self.clear_employee_editor()
-        
-        # Update schedule view if we removed any shifts
-        if shifts_removed:
-            self.draw_calendar()
+        self.draw_calendar()
 
     def on_employee_select(self, event):
         # Prevent auto-save from firing while we populate fields
